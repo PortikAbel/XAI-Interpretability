@@ -7,10 +7,10 @@ import cv2
 
 from torch.utils.data import DataLoader
 
-from datasets.funny_birds import FunnyBirds
-import models.protopnet.model as model_ppnet
-from models.model_wrapper import ProtoPNetModel
-from explainers.explainer_wrapper import ProtoPNetExplainer
+from data.funny_birds import FunnyBirds
+import models.ProtoPNet.model as model_ppnet
+from custom_evaluation.model_wrapper.ProtoPNet import ProtoPNetModel
+from custom_evaluation.explainer_wrapper.ProtoPNet import ProtoPNetExplainer
 
 
 def find_high_activation_crop(activation_map, percentile=95):

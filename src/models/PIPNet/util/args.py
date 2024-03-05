@@ -20,7 +20,7 @@ def get_args() -> argparse.Namespace:
     dataset_group.add_argument(
         "--dataset",
         type=str,
-        default="CUB-200-2011",
+        default="CUB-10",
         help="Data set on PIP-Net should be trained",
     )
     dataset_group.add_argument(
@@ -230,6 +230,12 @@ def get_args() -> argparse.Namespace:
         type=str,
         default="visualization_results",
         help="Directoy for saving the prototypes and explanations",
+    )
+    log_group.add_argument(
+        "--log_prototype_activations_violin_plot",
+        action="store_true",
+        help="""Logs a violinplot in tensorboard
+            for every prototype with their activations during train step""",
     )
 
     visualization_group = parser.add_argument_group(
