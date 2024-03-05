@@ -283,12 +283,13 @@ def run_pipnet(args=None):
             net=net,
             epoch=epoch,
         )
-        visual_logs.prototype_activations_violin_plot(
-            tensorboard_writer=tensorboard_writer,
-            net=net,
-            epoch=epoch,
-            train_info=train_info,
-        )
+        if args.log_prototype_activations_violin_plot:
+            visual_logs.prototype_activations_violin_plot(
+                tensorboard_writer=tensorboard_writer,
+                net=net,
+                epoch=epoch,
+                train_info=train_info,
+            )
         lrs_pretrain_net += train_info["lrs_net"]
         visual_logs.save_lr_curve(
             learning_rates=lrs_pretrain_net,

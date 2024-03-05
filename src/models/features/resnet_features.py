@@ -264,8 +264,8 @@ class ResNet(nn.Module):
         return template.format(self.num_layers() + 1)
 
 
-def initialize_resnet(
-    model_name: str,
+def _resnet_features(
+    arch: str,
     layers: list,
     block: nn.Module = BasicBlock,
     pretrained: bool = False,
@@ -274,7 +274,7 @@ def initialize_resnet(
     model = ResNet(block, layers, **kwargs)
 
     if pretrained:
-        my_dict = model_zoo.load_url(model_urls[model_name], model_dir=model_dir)
+        my_dict = model_zoo.load_url(model_urls[arch], model_dir=model_dir)
         my_dict.pop("fc.weight")
         my_dict.pop("fc.bias")
         if model.conv1.weight.size(1) == 1:
@@ -291,7 +291,7 @@ def resnet18_features(pretrained=False, **kwargs):
     Args:
         pretrained (bool): If True, returns a model pre-trained on ImageNet
     """
-    return initialize_resnet("resnet18", [2, 2, 2, 2], pretrained=pretrained, **kwargs)
+    return _resnet_features("resnet18", [2, 2, 2, 2], pretrained=pretrained, **kwargs)
 
 
 def resnet34_features(pretrained=False, **kwargs):
@@ -299,7 +299,7 @@ def resnet34_features(pretrained=False, **kwargs):
     Args:
         pretrained (bool): If True, returns a model pre-trained on ImageNet
     """
-    return initialize_resnet("resnet34", [3, 4, 6, 3], pretrained=pretrained, **kwargs)
+    return _resnet_features("resnet34", [3, 4, 6, 3], pretrained=pretrained, **kwargs)
 
 
 def resnet50_features(pretrained=False, **kwargs):
@@ -307,7 +307,7 @@ def resnet50_features(pretrained=False, **kwargs):
     Args:
         pretrained (bool): If True, returns a model pre-trained on ImageNet
     """
-    return initialize_resnet(
+    return _resnet_features(
         "resnet50", [3, 4, 6, 3], Bottleneck, pretrained=pretrained, **kwargs
     )
 
@@ -365,7 +365,7 @@ def resnet101_features(pretrained=False, **kwargs):
     Args:
         pretrained (bool): If True, returns a model pre-trained on ImageNet
     """
-    return initialize_resnet(
+    return _resnet_features(
         "resnet101", [3, 4, 23, 3], Bottleneck, pretrained=pretrained, **kwargs
     )
 
@@ -375,6 +375,6 @@ def resnet152_features(pretrained=False, **kwargs):
     Args:
         pretrained (bool): If True, returns a model pre-trained on ImageNet
     """
-    return initialize_resnet(
+    return _resnet_features(
         "resnet152", [3, 8, 36, 3], Bottleneck, pretrained=pretrained, **kwargs
     )
