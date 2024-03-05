@@ -314,7 +314,7 @@ def get_args() -> argparse.Namespace:
 
     args.image_size = np.array((args.image_height, args.image_width))
 
-    args.log_dir = Path(os.getenv("PROJECT_ROOT")) / "PIPNet" / args.log_dir
+    args.log_dir = Path(os.getenv("PROJECT_ROOT")) / "models" / "PIPNet" / args.log_dir
     args.log_dir = args.log_dir.resolve()
     args.log_dir.mkdir(parents=True, exist_ok=True)
 

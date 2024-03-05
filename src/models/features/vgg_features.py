@@ -1,7 +1,11 @@
-from typing import Union, List, Dict, Any, cast
+from typing import Any
 
 import torch.nn as nn
 import torch.utils.model_zoo as model_zoo
+import os
+from dotenv import load_dotenv, find_dotenv
+from pathlib import Path
+
 
 model_urls = {
     "vgg11": "https://download.pytorch.org/models/vgg11-bbd30ac9.pth",
@@ -14,7 +18,8 @@ model_urls = {
     "vgg19_bn": "https://download.pytorch.org/models/vgg19_bn-c79401a0.pth",
 }
 
-model_dir = "./pretrained_models"
+load_dotenv(find_dotenv())
+model_dir = Path(os.getenv("PROJECT_ROOT")) / "models" / "pretrained"
 
 cfgs = {
     "A": [64, "M", 128, "M", 256, 256, "M", 512, 512, "M", 512, 512, "M"],

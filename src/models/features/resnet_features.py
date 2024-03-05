@@ -3,6 +3,9 @@ import torch.nn as nn
 import torch.utils.model_zoo as model_zoo
 import os
 import copy
+from dotenv import load_dotenv, find_dotenv
+from pathlib import Path
+
 
 model_urls = {
     "resnet18": "https://download.pytorch.org/models/resnet18-5c106cde.pth",
@@ -12,7 +15,9 @@ model_urls = {
     "resnet152": "https://download.pytorch.org/models/resnet152-b121ed2d.pth",
 }
 
-model_dir = "./pretrained_models"
+
+load_dotenv(find_dotenv())
+model_dir = Path(os.getenv("PROJECT_ROOT")) / "models" / "pretrained"
 
 
 def conv3x3(in_planes, out_planes, stride=1):

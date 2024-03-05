@@ -1,13 +1,12 @@
 import torch
 import torch.nn as nn
-import torch.utils.model_zoo as model_zoo
 import torch.nn.functional as F
 
-from .resnet_features import resnet18_features, resnet34_features, resnet50_features, resnet101_features, resnet152_features
-from .vgg_features import vgg11_features, vgg11_bn_features, vgg13_features, vgg13_bn_features, vgg16_features, vgg16_bn_features,\
+from models.features.resnet_features import resnet18_features, resnet34_features, resnet50_features, resnet101_features, resnet152_features
+from models.features.vgg_features import vgg11_features, vgg11_bn_features, vgg13_features, vgg13_bn_features, vgg16_features, vgg16_bn_features,\
                          vgg19_features, vgg19_bn_features
 
-from .receptive_field import compute_proto_layer_rf_info_v2
+from models.ProtoPNet.receptive_field import compute_proto_layer_rf_info_v2
 
 base_architecture_to_features = {'resnet18': resnet18_features,
                                  'resnet34': resnet34_features,
