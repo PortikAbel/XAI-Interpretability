@@ -2,7 +2,8 @@ import argparse
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from torch import Tensor
+from torchinfo import summary
+
 from models.features.resnet_features import (
     resnet18_features,
     resnet34_features,
@@ -15,6 +16,8 @@ from models.features.convnext_features import (
     convnext_tiny_26_features,
     convnext_tiny_13_features,
 )
+
+from models.features.vgg_features import *
 
 
 
@@ -67,6 +70,17 @@ base_architecture_to_features = {
     "convnext_tiny_13": convnext_tiny_13_features,
 }
 
+base_architecture_to_features = base_architecture_to_features | {
+    'vgg11': vgg11_features,
+    'vgg11_bn': vgg11_bn_features,
+    'vgg13': vgg13_features,
+    'vgg13_bn': vgg13_bn_features,
+    'vgg16': vgg16_features,
+    'vgg16_bn': vgg16_bn_features,
+    'vgg19': vgg19_features,
+    'vgg19_bn': vgg19_bn_features
+}
+
 
 # adapted from
 # https://pytorch.org/docs/stable/_modules/torch/nn/modules/linear.html#Linear
@@ -96,7 +110,7 @@ class NonNegLinear(nn.Module):
         else:
             self.register_parameter("bias", None)
 
-    def forward(self, input: Tensor) -> Tensor:
+    def forward(self, input: torch.Tensor) -> torch.Tensor:
         return F.linear(input, torch.relu(self.weight), self.bias)
 
 
@@ -105,18 +119,16 @@ def get_network(num_classes: int, args: argparse.Namespace):
         in_channels = 1
     else:
         in_channels = 3
+
+    if args.net not in base_architecture_to_features:
+        raise ValueError(f"Base architecture {args.net!r} is not implemented.")
+
     features = base_architecture_to_features[args.net](
         pretrained=not args.disable_pretrained, in_channels=in_channels
     )
-    features_name = str(features).upper()
-    if "next" in args.net:
-        features_name = str(args.net).upper()
-    if features_name.startswith("RES") or features_name.startswith("CONVNEXT"):
-        first_add_on_layer_in_channels = [
-            i for i in features.modules() if isinstance(i, nn.Conv2d)
-        ][-1].out_channels
-    else:
-        raise ValueError(f"Base architecture {args.net} is not implemented.")
+    first_add_on_layer_in_channels = [
+        i for i in features.modules() if isinstance(i, nn.Conv2d)
+    ][-1].out_channels
 
     if args.num_features == 0:
         num_prototypes = first_add_on_layer_in_channels
@@ -156,6 +168,12 @@ def get_network(num_classes: int, args: argparse.Namespace):
         classification_layer = NonNegLinear(num_prototypes, num_classes, bias=True)
     else:
         classification_layer = NonNegLinear(num_prototypes, num_classes, bias=False)
+
+    print(f"\nUsing base architecture: {args.net}", flush=True)
+    summary(features, input_size=(1, in_channels, 224, 224))
+    summary(add_on_layers)
+    summary(pool_layer)
+    summary(classification_layer)
 
     return (
         features,

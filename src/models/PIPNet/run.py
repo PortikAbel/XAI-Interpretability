@@ -4,9 +4,15 @@ import random
 import numpy as np
 from copy import deepcopy
 
+
+from dotenv import load_dotenv
 import torch
 import torch.nn as nn
 from torch.utils.tensorboard import SummaryWriter
+
+load_dotenv()
+sys.path.append(os.getenv("SOURCE_CODE_LOCATION"))
+print(sys.path)
 
 import models.PIPNet.visualize.logs as visual_logs
 from models.PIPNet.visualize.pipnet import visualize, visualize_top_k
