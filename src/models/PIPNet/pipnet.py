@@ -17,7 +17,6 @@ from models.features.convnext_features import (
 )
 
 
-
 class PIPNet(nn.Module):
     def __init__(
         self,
@@ -101,10 +100,7 @@ class NonNegLinear(nn.Module):
 
 
 def get_network(num_classes: int, args: argparse.Namespace):
-    if args.dataset in ("road_type_detection", "road_condition_monitoring"):
-        in_channels = 1
-    else:
-        in_channels = 3
+    in_channels = 3
     features = base_architecture_to_features[args.net](
         pretrained=not args.disable_pretrained, in_channels=in_channels
     )

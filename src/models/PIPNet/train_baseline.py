@@ -1,4 +1,4 @@
-import torch
+import torch.utils.data
 import torch.nn as nn
 import torch.optim as optim
 from torch.utils.tensorboard import SummaryWriter
@@ -10,7 +10,7 @@ from data.config import DATASETS
 from models.PIPNet.util.data import get_img_loader
 
 # Create trainsforms and dataloader
-dataset_name = "road_type_detection"
+dataset_name = "CUB-200-2011"
 dataset_config = DATASETS[dataset_name]
 img_shape = dataset_config["img_shape"]
 num_classes = dataset_config["num_classes"]
@@ -37,9 +37,9 @@ transform_test = transforms.Compose([
     transforms.ToTensor(),
     transforms.Normalize((mean,), (std,)),
 ])
-trainset = torchvision.datasets.ImageFolder(
+train_set = torchvision.datasets.ImageFolder(
     train_dir, transform=transform_train, loader=img_loader)
-testset = torchvision.datasets.ImageFolder(
+test_set = torchvision.datasets.ImageFolder(
     test_dir, transform=transform_test, loader=img_loader
 )
 
@@ -64,16 +64,16 @@ model = model.to(device)
 criterion = nn.CrossEntropyLoss()
 optimizer = optim.SGD(model.parameters(), lr=0.01, momentum=0.9)
 
-# Assuming you have your trainloader and testloader ready
-trainloader = torch.utils.data.DataLoader(trainset, batch_size=128, shuffle=True)
-testloader = torch.utils.data.DataLoader(testset, batch_size=100, shuffle=False)
+# Assuming you have your train_loader and test_loader ready
+train_loader = torch.utils.data.DataLoader(train_set, batch_size=128, shuffle=True)
+test_loader = torch.utils.data.DataLoader(test_set, batch_size=100, shuffle=False)
 
 tensorboard_writer = SummaryWriter(log_dir="runs/baseline_lr-1e-2")
 
 num_epochs = 15
 print(f"Number of training epochs: {num_epochs}")
-print(f"Len of trainloader: {len(trainloader)}")
-print(f"Len of testloader: {len(testloader)}")
+print(f"Len of train_loader: {len(train_loader)}")
+print(f"Len of test_loader: {len(test_loader)}")
 
 # Training the model
 for epoch in range(num_epochs):
@@ -82,7 +82,7 @@ for epoch in range(num_epochs):
     model.train()
     running_loss = 0.0
     running_loss_epoch = 0.0
-    for i, data in enumerate(trainloader):
+    for i, data in enumerate(train_loader):
         inputs, labels = data[0].to(device), data[1].to(device)
         
         optimizer.zero_grad()
@@ -92,17 +92,21 @@ for epoch in range(num_epochs):
         loss.backward()
         optimizer.step()
         
-        tensorboard_writer.add_scalar("Loss_train", loss.item(), epoch*len(trainloader)+i)
+        tensorboard_writer.add_scalar("Loss_train", loss.item(), epoch * len(train_loader) + i)
 
         running_loss += loss.item()
         running_loss_epoch += loss.item()
         if i % 100 == 99:  # Print every 100 mini-batches
-            # tensorboard_writer.add_scalar("Loss_train_100_iter", running_loss/100., epoch*len(trainloader)+i)
+            # tensorboard_writer.add_scalar(
+            #     "Loss_train_100_iter",
+            #     running_loss / 100.,
+            #     epoch * len(train_loader) + i
+            # )
             print('[%d, %5d] loss: %.3f' %
                   (epoch + 1, i + 1, running_loss / 100))
             running_loss = 0.0
     
-    tensorboard_writer.add_scalar("Loss_train_epoch", running_loss_epoch/len(trainloader), epoch)
+    tensorboard_writer.add_scalar("Loss_train_epoch", running_loss_epoch / len(train_loader), epoch)
     
     # Evaluate the model on the test set
     model.eval()
@@ -110,7 +114,7 @@ for epoch in range(num_epochs):
     total = 0
     running_eval_loss = 0.0
     with torch.no_grad():
-        for data in testloader:
+        for data in test_loader:
             images, labels = data[0].to(device), data[1].to(device)
             outputs = model(images)
             loss = criterion(outputs, labels)
@@ -119,11 +123,14 @@ for epoch in range(num_epochs):
             _, predicted = torch.max(outputs.data, 1)
             total += labels.size(0)
             correct += (predicted == labels).sum().item()
-    tensorboard_writer.add_scalar("Loss_test_epoch", running_eval_loss/len(testloader), epoch)
+    tensorboard_writer.add_scalar(
+        "Loss_test_epoch",
+        running_eval_loss / len(test_loader),
+        epoch
+    )
     acc = 100 * correct / total
     tensorboard_writer.add_scalar("Test_accuracy", acc, epoch)
-    print('Accuracy of the network on the test images: %d %%' % (
-        acc))
-print('Finished Training')
+    print(f"Accuracy of the network on the test images: {acc:.2%}")
+print("Finished Training")
 
 
