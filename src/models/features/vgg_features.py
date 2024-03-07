@@ -36,9 +36,10 @@ cfgs = {
 # fmt: on
 
 
-class VGGFeatures(nn.Module):
-    def __init__(self, cfg, batch_norm=False, init_weights=True):
-        super(VGGFeatures, self).__init__()
+class VGG_features(nn.Module):
+
+    def __init__(self, cfg, batch_norm=False, init_weights=True, in_channels=3):
+        super(VGG_features, self).__init__()
 
         self.batch_norm = batch_norm
 
@@ -46,7 +47,7 @@ class VGGFeatures(nn.Module):
         self.strides = []
         self.paddings = []
 
-        self.features = self._make_layers(cfg, batch_norm)
+        self.features = self._make_layers(cfg, batch_norm, in_channels)
 
         if init_weights:
             self._initialize_weights()
@@ -68,11 +69,11 @@ class VGGFeatures(nn.Module):
                 nn.init.normal_(m.weight, 0, 0.01)
                 nn.init.constant_(m.bias, 0)
 
-    def _make_layers(self, cfg, batch_norm):
+    def _make_layers(self, cfg, batch_norm, in_channels=3):
+
         self.n_layers = 0
 
         layers = []
-        in_channels = 3
         for v in cfg:
             if v == "M":
                 layers += [nn.MaxPool2d(kernel_size=2, stride=2)]

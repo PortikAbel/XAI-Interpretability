@@ -83,15 +83,9 @@ def get_network(num_classes: int, args: argparse.Namespace):
     features = base_architecture_to_features[args.net](
         pretrained=not args.disable_pretrained, in_channels=in_channels
     )
-    features_name = str(features).upper()
-    if "next" in args.net:
-        features_name = str(args.net).upper()
-    if features_name.startswith("RES") or features_name.startswith("CONVNEXT"):
-        first_add_on_layer_in_channels = [
-            i for i in features.modules() if isinstance(i, nn.Conv2d)
-        ][-1].out_channels
-    else:
-        raise ValueError(f"Base architecture {args.net} is not implemented.")
+    first_add_on_layer_in_channels = [
+        i for i in features.modules() if isinstance(i, nn.Conv2d)
+    ][-1].out_channels
 
     if args.num_features == 0:
         num_prototypes = first_add_on_layer_in_channels
