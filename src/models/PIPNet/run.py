@@ -1,28 +1,28 @@
 import os
-import sys
 import random
-import numpy as np
+import sys
 from copy import deepcopy
 
+import numpy as np
 import torch
 import torch.nn as nn
 from torch.utils.tensorboard import SummaryWriter
 
 import models.PIPNet.visualize.logs as visual_logs
-from models.PIPNet.visualize.pipnet import visualize, visualize_top_k
-from models.PIPNet.visualize.prediction import vis_pred, vis_pred_experiments
 from models.PIPNet.pipnet import PIPNet, get_network
-from models.PIPNet.util.log import Log
-from models.PIPNet.util.args import get_args, save_args, get_optimizer_nn
-from models.PIPNet.util.data import get_dataloaders
-from models.PIPNet.util.func import init_weights_xavier
+from models.PIPNet.test_setp import eval_ood, eval_pipnet, get_thresholds
 from models.PIPNet.train_setp import train_pipnet
-from models.PIPNet.test_setp import eval_pipnet, get_thresholds, eval_ood
+from models.PIPNet.util.args import get_args, get_optimizer_nn, save_args
+from models.PIPNet.util.data import get_dataloaders
 from models.PIPNet.util.eval_cub_csv import (
     eval_prototypes_cub_parts_csv,
-    get_topk_cub,
     get_proto_patches_cub,
+    get_topk_cub,
 )
+from models.PIPNet.util.func import init_weights_xavier
+from models.PIPNet.util.log import Log
+from models.PIPNet.visualize.pipnet import visualize, visualize_top_k
+from models.PIPNet.visualize.prediction import vis_pred, vis_pred_experiments
 
 
 def run_pipnet(args=None):
@@ -489,11 +489,17 @@ def run_pipnet(args=None):
             train_info["train_accuracy"],
             train_info["loss"],
         )
-        tensorboard_writer.add_scalar("Acc/eval-epochs", eval_info["top1_accuracy"], epoch)
-        tensorboard_writer.add_scalar("Acc/train-epochs", train_info["train_accuracy"], epoch)
+        tensorboard_writer.add_scalar(
+            "Acc/eval-epochs", eval_info["top1_accuracy"], epoch
+        )
+        tensorboard_writer.add_scalar(
+            "Acc/train-epochs", train_info["train_accuracy"], epoch
+        )
         tensorboard_writer.add_scalar("Loss/train-epochs", train_info["loss"], epoch)
-        tensorboard_writer.add_scalar("Num non-zero prototypes", eval_info["almost_nonzeros"], epoch)
-        
+        tensorboard_writer.add_scalar(
+            "Num non-zero prototypes", eval_info["almost_nonzeros"], epoch
+        )
+
         with torch.no_grad():
             net.eval()
             torch.save(
@@ -531,7 +537,7 @@ def run_pipnet(args=None):
             device,
             "visualised_prototypes_topk",
             args,
-            log
+            log,
         )
         # set weights of prototypes that are never really found in projection set to 0
         set_to_zero = []

@@ -1,8 +1,8 @@
 import argparse
-from collections import defaultdict
 import random
-import numpy as np
+from collections import defaultdict
 
+import numpy as np
 import torch
 import torch.utils.data
 import torchvision
@@ -12,7 +12,7 @@ from PIL import ImageDraw as D
 from tqdm import tqdm
 
 from models.PIPNet.util.log import Log
-from models.PIPNet.visualize import get_patch_size, get_patch
+from models.PIPNet.visualize import get_patch, get_patch_size
 
 
 @torch.no_grad()
@@ -99,14 +99,13 @@ def visualize_top_k(
                             if replace_choice > 0:
                                 topks[p][-1] = (i, pooled[p].item())
 
-    alli = []
     prototypes_not_used = []
     i_to_p: dict = defaultdict(list)
     for p in topks.keys():
         img_idxs, scores = zip(*topks[p])
         if any(np.array(scores) > 0.1):
             for i in img_idxs:
-               i_to_p[i].append(p)
+                i_to_p[i].append(p)
         else:
             prototypes_not_used.append(p)
 
@@ -128,7 +127,7 @@ def visualize_top_k(
     for i, (xs, ys) in img_iter:
         # shuffle is false so should lead to same order as in imgs
         xs, ys = xs.to(device), ys.to(device)
-            # Use the model to classify this batch of input data
+        # Use the model to classify this batch of input data
         with torch.no_grad():
             softmaxes, pooled, out = net(
                 xs, inference=True
@@ -138,19 +137,25 @@ def visualize_top_k(
             outmax = torch.amax(out, dim=1)[0]
             if outmax.item() == 0.0:
                 abstained += 1
-        
+
         for p in i_to_p[i]:
-            c_weight = torch.max(classification_weights[:, p])  # ignore prototypes that are not relevant to any class
+            c_weight = torch.max(
+                classification_weights[:, p]
+            )  # ignore prototypes that are not relevant to any class
             if (c_weight > 1e-10) or ("pretrain" in folder_name):
                 # get the h and w index of the max prototype from the p slice
                 proto_slice = softmaxes[0, p, :, :]
                 h_idx, w_idx = (proto_slice.max() == proto_slice).nonzero(as_tuple=True)
                 h_idx, w_idx = h_idx[0], w_idx[0]
                 img_to_open = imgs[i]
-                if isinstance(img_to_open, tuple) or isinstance(img_to_open, list):  # dataset contains tuples of (img,label)
+                if isinstance(img_to_open, tuple) or isinstance(
+                    img_to_open, list
+                ):  # dataset contains tuples of (img,label)
                     img_to_open = img_to_open[0]
 
-                image, img_tensor_patch, _, _ = get_patch(img_to_open, args, h_idx, w_idx, softmaxes.shape)
+                image, img_tensor_patch, _, _ = get_patch(
+                    img_to_open, args, h_idx, w_idx, softmaxes.shape
+                )
 
                 saved[p] += 1
                 tensors_per_prototype[p].append(img_tensor_patch)
@@ -161,16 +166,28 @@ def visualize_top_k(
         if saved[p] > 0:
             # add text next to each topk-grid, to easily see which prototype it is
             text = "P " + str(p)
-            txt_image = Image.new("RGB", (img_tensor_patch.shape[1], img_tensor_patch.shape[2]), (0, 0, 0),)
+            txt_image = Image.new(
+                "RGB",
+                (img_tensor_patch.shape[1], img_tensor_patch.shape[2]),
+                (0, 0, 0),
+            )
             draw = D.Draw(txt_image)
             draw.text(
-                (img_tensor_patch.shape[0] // 2, img_tensor_patch.shape[1] // 2,),
-                text, anchor="mm", fill="white",)
+                (
+                    img_tensor_patch.shape[0] // 2,
+                    img_tensor_patch.shape[1] // 2,
+                ),
+                text,
+                anchor="mm",
+                fill="white",
+            )
             txt_tensor = transforms.ToTensor()(txt_image)
             tensors_per_prototype[p].append(txt_tensor)
             # save top-k image patches in grid
             try:
-                grid = torchvision.utils.make_grid( tensors_per_prototype[p], nrow=k + 1, padding=1)
+                grid = torchvision.utils.make_grid(
+                    tensors_per_prototype[p], nrow=k + 1, padding=1
+                )
                 torchvision.utils.save_image(grid, result_dir / f"grid_top_k_{p}.png")
                 if saved[p] >= k:
                     all_tensors += tensors_per_prototype[p]

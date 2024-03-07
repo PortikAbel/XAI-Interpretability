@@ -2,7 +2,6 @@ import os
 
 from utils.environment import get_env
 
-
 DATASETS = {}
 
 data_dir = os.path.join(get_env("DATA_ROOT"), "CUB_200", "dataset")

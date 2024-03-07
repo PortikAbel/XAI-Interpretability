@@ -1,8 +1,8 @@
 from pathlib import Path
 
 import matplotlib.pyplot as plt
-from torch.utils.tensorboard import SummaryWriter
 from torch.nn import DataParallel
+from torch.utils.tensorboard import SummaryWriter
 
 
 def class_weights_heatmap(

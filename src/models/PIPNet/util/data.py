@@ -1,15 +1,15 @@
-import cv2
-import numpy as np
 import argparse
+import random
+from typing import Dict, Tuple
+
+import numpy as np
 import torch
 import torch.optim
 import torch.utils.data
 import torchvision
 import torchvision.transforms.v2 as transforms
-from torch import Tensor
-import random
 from sklearn.model_selection import train_test_split
-from typing import Tuple, Dict
+from torch import Tensor
 
 from data.config import DATASETS
 
@@ -145,8 +145,10 @@ def get_datasets(args: argparse.Namespace):
 
     if test_dir is None:
         if args.validation_size <= 0.0:
-            raise ValueError("There is no test set directory, so validation size "
-                             "should be > 0 such that training set can be split.")
+            raise ValueError(
+                "There is no test set directory, so validation size "
+                "should be > 0 such that training set can be split."
+            )
         subset_targets = list(np.array(targets)[train_indices])
         train_indices, test_indices = train_test_split(
             train_indices,
@@ -169,7 +171,9 @@ def get_datasets(args: argparse.Namespace):
             flush=True,
         )
     else:
-        test_set = torchvision.datasets.ImageFolder(test_dir, transform=transform_no_augment)
+        test_set = torchvision.datasets.ImageFolder(
+            test_dir, transform=transform_no_augment
+        )
     if test_dir_projection is not None:
         test_set_projection = torchvision.datasets.ImageFolder(
             test_dir_projection,

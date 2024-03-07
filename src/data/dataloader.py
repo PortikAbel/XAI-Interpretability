@@ -1,9 +1,9 @@
-import numpy as np
 import albumentations as A
-from albumentations.pytorch import ToTensorV2
+import numpy as np
 import torch.utils.data
 import torchvision.datasets as datasets
 import torchvision.transforms as transforms
+from albumentations.pytorch import ToTensorV2
 
 from data.config import (
     dataset_config,
@@ -11,7 +11,6 @@ from data.config import (
     train_batch_size,
     train_push_batch_size,
 )
-
 
 # load the data
 data_dir = dataset_config["data_dir"]
@@ -44,9 +43,7 @@ normalizing_transform = transforms.Compose(
 train_augmentation = A.Compose(
     [
         A.augmentations.transforms.RandomBrightnessContrast(),
-        A.ShiftScaleRotate(
-            shift_limit=0.0625, scale_limit=0.1, rotate_limit=20, p=0.5
-        ),
+        A.ShiftScaleRotate(shift_limit=0.0625, scale_limit=0.1, rotate_limit=20, p=0.5),
         A.HorizontalFlip(p=0.5),
     ]
 )
@@ -67,9 +64,7 @@ if dataset_config["augm"]:  # data augmentation is added via albumentations
     print("AUGMENTING")
     normalize_augment = A.Compose(
         [
-            A.ToFloat(
-                max_value=256
-            ),  # 8-bits  # TODO: read max value from config
+            A.ToFloat(max_value=256),  # 8-bits  # TODO: read max value from config
             train_augmentation,  # augmentation with Albumentations
             A.Normalize(
                 mean=mean, std=std, max_pixel_value=1.0, p=1.0

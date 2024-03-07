@@ -1,8 +1,14 @@
 import argparse
+
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from torch import Tensor
+
+from models.features.convnext_features import (
+    convnext_tiny_13_features,
+    convnext_tiny_26_features,
+)
 from models.features.resnet_features import (
     resnet18_features,
     resnet34_features,
@@ -10,10 +16,6 @@ from models.features.resnet_features import (
     resnet50_features_inat,
     resnet101_features,
     resnet152_features,
-)
-from models.features.convnext_features import (
-    convnext_tiny_26_features,
-    convnext_tiny_13_features,
 )
 
 

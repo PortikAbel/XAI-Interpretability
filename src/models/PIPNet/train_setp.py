@@ -1,8 +1,8 @@
-from tqdm import tqdm
 import torch
 import torch.nn.functional as F
 import torch.optim
 import torch.utils.data
+from tqdm import tqdm
 
 
 def train_pipnet(
@@ -252,14 +252,24 @@ def calculate_loss(
                     refresh=False,
                 )
                 if tensorboard_writer:
-                    tensorboard_writer.add_scalar("Loss/pretrain/L", loss.item(), iteration)
-                    tensorboard_writer.add_scalar("Loss/pretrain/LA", a_loss_pf.item(), iteration)
+                    tensorboard_writer.add_scalar(
+                        "Loss/pretrain/L", loss.item(), iteration
+                    )
+                    tensorboard_writer.add_scalar(
+                        "Loss/pretrain/LA", a_loss_pf.item(), iteration
+                    )
                     if t_weight > 0:
-                        tensorboard_writer.add_scalar("Loss/pretrain/LT", tanh_loss.item(), iteration)
+                        tensorboard_writer.add_scalar(
+                            "Loss/pretrain/LT", tanh_loss.item(), iteration
+                        )
                     if unif_weight > 0:
-                        tensorboard_writer.add_scalar("Loss/pretrain/LU", uni_loss.item(), iteration)
+                        tensorboard_writer.add_scalar(
+                            "Loss/pretrain/LU", uni_loss.item(), iteration
+                        )
                     if var_weigth > 0:
-                        tensorboard_writer.add_scalar("Loss/pretrain/LV", var_loss.item(), iteration)
+                        tensorboard_writer.add_scalar(
+                            "Loss/pretrain/LV", var_loss.item(), iteration
+                        )
             else:
                 train_iter.set_postfix_str(
                     (
@@ -275,15 +285,27 @@ def calculate_loss(
                     refresh=False,
                 )
                 if tensorboard_writer:
-                    tensorboard_writer.add_scalar("Loss/train/L", loss.item(), iteration)
-                    tensorboard_writer.add_scalar("Loss/train/LA", a_loss_pf.item(), iteration)
-                    tensorboard_writer.add_scalar("Loss/train/LC", class_loss.item(), iteration)
+                    tensorboard_writer.add_scalar(
+                        "Loss/train/L", loss.item(), iteration
+                    )
+                    tensorboard_writer.add_scalar(
+                        "Loss/train/LA", a_loss_pf.item(), iteration
+                    )
+                    tensorboard_writer.add_scalar(
+                        "Loss/train/LC", class_loss.item(), iteration
+                    )
                     if t_weight > 0:
-                        tensorboard_writer.add_scalar("Loss/train/LT", tanh_loss.item(), iteration)
+                        tensorboard_writer.add_scalar(
+                            "Loss/train/LT", tanh_loss.item(), iteration
+                        )
                     if unif_weight > 0:
-                        tensorboard_writer.add_scalar("Loss/train/LU", uni_loss.item(), iteration)
+                        tensorboard_writer.add_scalar(
+                            "Loss/train/LU", uni_loss.item(), iteration
+                        )
                     if var_weigth > 0:
-                        tensorboard_writer.add_scalar("Loss/train/LV", var_loss.item(), iteration)
+                        tensorboard_writer.add_scalar(
+                            "Loss/train/LV", var_loss.item(), iteration
+                        )
                     tensorboard_writer.add_scalar("Acc/train", acc, iteration)
 
     return loss, acc

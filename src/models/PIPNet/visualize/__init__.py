@@ -1,10 +1,9 @@
 import argparse  # noqa
-
-import numpy as np
 from pathlib import Path  # noqa
 
-from PIL import Image
+import numpy as np
 import torchvision.transforms as transforms
+from PIL import Image
 
 
 def get_patch_size(args):
