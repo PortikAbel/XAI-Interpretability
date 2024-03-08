@@ -8,6 +8,10 @@ import torch
 import torch.nn as nn
 from torch.utils.tensorboard import SummaryWriter
 
+load_dotenv()
+sys.path.append(os.getenv("SOURCE_CODE_LOCATION"))
+print(sys.path)
+
 import models.PIPNet.visualize.logs as visual_logs
 from models.PIPNet.pipnet import PIPNet, get_network
 from models.PIPNet.test_setp import eval_ood, eval_pipnet, get_thresholds
