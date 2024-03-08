@@ -2,7 +2,7 @@ import torch
 from torch import nn
 from torch.hub import load_state_dict_from_url
 
-from .features import vgg_features
+from models.features import vgg_features
 
 
 class VGG(nn.Module):
