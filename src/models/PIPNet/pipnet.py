@@ -126,6 +126,12 @@ def get_network(num_classes: int, args: argparse.Namespace):
     else:
         classification_layer = NonNegLinear(num_prototypes, num_classes, bias=False)
 
+    print(f"\nUsing base architecture: {args.net}", flush=True)
+    summary(features, input_size=(1, in_channels, 224, 224))
+    summary(add_on_layers)
+    summary(pool_layer)
+    summary(classification_layer)
+
     return (
         features,
         add_on_layers,
