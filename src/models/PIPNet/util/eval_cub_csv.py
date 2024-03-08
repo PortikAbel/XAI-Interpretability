@@ -1,11 +1,13 @@
 import csv
+import os
+
 import numpy as np
 import pandas as pd
-import os
+import torch
 from PIL import Image
 from tqdm import tqdm
-import torch
-from models.PIPNet.visualize import get_patch_size, get_img_coordinates
+
+from models.PIPNet.visualize import get_img_coordinates, get_patch_size
 
 
 # Evaluates purity of CUB prototypes from csv file.

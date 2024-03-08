@@ -1,10 +1,14 @@
-import torch.nn as nn
 from abc import abstractmethod
+
+import torch.nn as nn
+
 
 class AbstractModel(nn.Module):
     def __init__(self, model):
         """
-        An abstract wrapper for PyTorch models implementing functions required for evaluation.
+        An abstract wrapper for PyTorch models implementing
+        functions required for evaluation.
+
         Args:
             model: PyTorch neural network model
         """
@@ -12,5 +16,5 @@ class AbstractModel(nn.Module):
         self.model = model
 
     @abstractmethod
-    def forward(self, input):
+    def forward(self, input_):
         return self.model

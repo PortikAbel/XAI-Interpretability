@@ -1,9 +1,10 @@
 import argparse
-import numpy as np
 import os
 import pickle
 import random
 from pathlib import Path
+
+import numpy as np
 import torch
 import torch.optim
 
@@ -87,8 +88,11 @@ def get_args() -> argparse.Namespace:
         help="Batch size when pretraining the prototypes (first training stage)",
     )
     net_parameter_group.add_argument(
-        "--train_backbone_during_pretrain", action='store_true',
-        help="To train the whole backbone during pretrain (e.g. if dataset is very different from ImageNet)")
+        "--train_backbone_during_pretrain",
+        action="store_true",
+        help="To train the whole backbone during pretrain "
+        "(e.g. if dataset is very different from ImageNet)",
+    )
     net_parameter_group.add_argument(
         "--epochs",
         type=np.uint16,

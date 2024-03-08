@@ -1,15 +1,15 @@
-import cv2
-import numpy as np
 import argparse
+import random
+from typing import Dict, Tuple
+
+import numpy as np
 import torch
 import torch.optim
 import torch.utils.data
 import torchvision
 import torchvision.transforms.v2 as transforms
-from torch import Tensor
-import random
 from sklearn.model_selection import train_test_split
-from typing import Tuple, Dict
+from torch import Tensor
 
 from data.config import DATASETS
 
@@ -20,11 +20,11 @@ def get_dataloaders(args: argparse.Namespace):
     """
     # Obtain the dataset
     (
-        trainset,
-        trainset_pretraining,
-        trainset_projection,
-        testset,
-        testset_projection,
+        train_set,
+        train_set_pretraining,
+        train_set_projection,
+        test_set,
+        test_set_projection,
         classes,
         train_indices,
         targets,
@@ -71,31 +71,31 @@ def get_dataloaders(args: argparse.Namespace):
         )
 
     train_loader = create_dataloader(
-        dataset=trainset,
+        dataset=train_set,
         batch_size=args.batch_size,
         shuffle=to_shuffle_train_set,
         drop_last=True,
     )
     train_loader_pretraining = create_dataloader(
-        dataset=trainset_pretraining or trainset,
+        dataset=train_set_pretraining or train_set,
         batch_size=args.batch_size_pretrain,
         shuffle=to_shuffle_train_set,
         drop_last=True,
     )
     train_loader_projection = create_dataloader(
-        dataset=trainset_projection,
+        dataset=train_set_projection,
         batch_size=1,
         shuffle=False,
         drop_last=False,
     )
     test_loader = create_dataloader(
-        dataset=testset,
+        dataset=test_set,
         batch_size=args.batch_size,
         shuffle=True,
         drop_last=False,
     )
     test_loader_projection = create_dataloader(
-        dataset=testset_projection,
+        dataset=test_set_projection,
         batch_size=1,
         shuffle=False,
         drop_last=False,
@@ -129,12 +129,10 @@ def get_datasets(args: argparse.Namespace):
     test_dir = dataset_config.get("test_dir", None)
     test_dir_projection = dataset_config.get("test_dir_projection", test_dir)
 
-    img_loader = get_img_loader(args.dataset)
-
-    trainvalset = torchvision.datasets.ImageFolder(train_dir, loader=img_loader)
-    classes = trainvalset.classes
-    targets = trainvalset.targets
-    indices = list(range(len(trainvalset)))
+    train_val_set = torchvision.datasets.ImageFolder(train_dir)
+    classes = train_val_set.classes
+    targets = train_val_set.targets
+    indices = list(range(len(train_val_set)))
 
     train_indices = indices
 
@@ -148,10 +146,8 @@ def get_datasets(args: argparse.Namespace):
     if test_dir is None:
         if args.validation_size <= 0.0:
             raise ValueError(
-                (
-                    "There is no test set directory, so validation size should be > 0"
-                    "such that training set can be split."
-                )
+                "There is no test set directory, so validation size "
+                "should be > 0 such that training set can be split."
             )
         subset_targets = list(np.array(targets)[train_indices])
         train_indices, test_indices = train_test_split(
@@ -160,14 +156,12 @@ def get_datasets(args: argparse.Namespace):
             stratify=subset_targets,
             random_state=args.seed,
         )
-        testset = torch.utils.data.Subset(
-            torchvision.datasets.ImageFolder(
-                train_dir, transform=transform_no_augment, loader=img_loader
-            ),
+        test_set = torch.utils.data.Subset(
+            torchvision.datasets.ImageFolder(train_dir, transform=transform_no_augment),
             indices=test_indices,
         )
         print(
-            "Samples in trainset:",
+            "Samples in train_set:",
             len(indices),
             "of which",
             len(train_indices),
@@ -177,33 +171,31 @@ def get_datasets(args: argparse.Namespace):
             flush=True,
         )
     else:
-        testset = torchvision.datasets.ImageFolder(
-            test_dir, transform=transform_no_augment, loader=img_loader
+        test_set = torchvision.datasets.ImageFolder(
+            test_dir, transform=transform_no_augment
         )
     if test_dir_projection is not None:
-        testset_projection = torchvision.datasets.ImageFolder(
+        test_set_projection = torchvision.datasets.ImageFolder(
             test_dir_projection,
             transform=transform_no_augment,
-            loader=img_loader,
         )
     else:
-        testset_projection = testset
+        test_set_projection = test_set
 
-    trainset = torch.utils.data.Subset(
+    train_set = torch.utils.data.Subset(
         TwoAugSupervisedDataset(
-            trainvalset, transform1=transform1, transform2=transform2
+            train_val_set, transform1=transform1, transform2=transform2
         ),
         indices=train_indices,
     )
-    trainset_projection = torchvision.datasets.ImageFolder(
-        train_dir_projection, transform=transform_no_augment, loader=img_loader
+    train_set_projection = torchvision.datasets.ImageFolder(
+        train_dir_projection,
+        transform=transform_no_augment,
     )
     if train_dir_pretrain is not None:
-        trainvalset_pr = torchvision.datasets.ImageFolder(
-            train_dir_pretrain, loader=img_loader
-        )
-        targets_pr = trainvalset_pr.targets
-        indices_pr = list(range(len(trainvalset_pr)))
+        train_val_set_pr = torchvision.datasets.ImageFolder(train_dir_pretrain)
+        targets_pr = train_val_set_pr.targets
+        indices_pr = list(range(len(train_val_set_pr)))
         train_indices_pr = indices_pr
         if test_dir is None:
             subset_targets_pr = list(np.array(targets_pr)[indices_pr])
@@ -214,41 +206,25 @@ def get_datasets(args: argparse.Namespace):
                 random_state=args.seed,
             )
 
-        trainset_pretraining = torch.utils.data.Subset(
+        train_set_pretraining = torch.utils.data.Subset(
             TwoAugSupervisedDataset(
-                trainvalset_pr, transform1=transform1p, transform2=transform2
+                train_val_set_pr, transform1=transform1p, transform2=transform2
             ),
             indices=train_indices_pr,
         )
     else:
-        trainset_pretraining = None
+        train_set_pretraining = None
 
     return (
-        trainset,
-        trainset_pretraining,
-        trainset_projection,
-        testset,
-        testset_projection,
+        train_set,
+        train_set_pretraining,
+        train_set_projection,
+        test_set,
+        test_set_projection,
         classes,
         train_indices,
         torch.LongTensor(targets),
     )
-
-
-def get_img_loader(dataset):
-    # flake8: noqa
-    match dataset:
-        case "road_type_detection":
-
-            def img_loader(path):
-                img = cv2.imread(path, flags=cv2.IMREAD_UNCHANGED)
-                img = np.expand_dims(np.array(img, np.float64), axis=-1)
-                img /= 16.0  # 0..255
-                return np.array(img, dtype=np.uint8)
-
-            return img_loader
-        case _:
-            return torchvision.datasets.folder.default_loader
 
 
 def get_transforms(args: argparse.Namespace):
@@ -260,42 +236,15 @@ def get_transforms(args: argparse.Namespace):
 
     normalize = transforms.Normalize(mean=mean, std=std)
 
-    # no augment transforms
-    match args.dataset:
-        case "road_type_detection":
-            transform_no_augment = transforms.Compose(
-                [
-                    # from v16 should be changed to ToImage
-                    transforms.ToImageTensor(),
-                    # from v16 should be changed to ToDtype(torch.float32, scale=True)]
-                    transforms.Resize(size=img_shape),
-                    transforms.ConvertImageDtype(),
-                    normalize,
-                ]
-            )
-        case "grayscale_example":
-            transform_no_augment = transforms.Compose(
-                [
-                    transforms.Resize(size=img_shape),
-                    transforms.Grayscale(3),
-                    transforms.ToImageTensor(),
-                    transforms.ConvertImageDtype(),
-                    normalize,
-                ]
-            )
-        case _:
-            transform_no_augment = transforms.Compose(
-                [
-                    transforms.Resize(size=img_shape),
-                    transforms.ToImageTensor(),
-                    transforms.ConvertImageDtype(),
-                    normalize,
-                ]
-            )
+    transform_no_augment = transforms.Compose(
+        [
+            transforms.Resize(size=img_shape),
+            transforms.ToImageTensor(),
+            transforms.ConvertImageDtype(),
+            normalize,
+        ]
+    )
 
-    transform1 = None
-    transform1p = None
-    transform2 = None
     if dataset_config["augm"]:
         # transform1: first step of augmentation
         match args.dataset:
@@ -307,43 +256,6 @@ def get_transforms(args: argparse.Namespace):
                         transforms.RandomHorizontalFlip(),
                         transforms.RandomResizedCrop(
                             size=(img_shape[0] + 4, img_shape[1] + 4),
-                            scale=(0.95, 1.0),
-                        ),
-                    ]
-                )
-            case "road_type_detection":
-                transform1 = transforms.Compose(
-                    [
-                        transforms.ToImageTensor(),
-                        transforms.Resize(size=(img_shape[0] + int(8.*img_shape[0]/img_shape[1]), img_shape[1] + 8)),
-                        TrivialAugmentWideNoColor(),
-                        transforms.RandomHorizontalFlip(),
-                        transforms.RandomResizedCrop(
-                            size=(img_shape[0] + 4, img_shape[1] + 4),
-                            scale=(0.95, 1.0),
-                        ),
-                    ]
-                )
-            case "CARS":
-                transform1 = transforms.Compose(
-                    [
-                        transforms.Resize(size=(img_shape[0] + 32, img_shape[1] + 32)),
-                        TrivialAugmentWideNoColor(),
-                        transforms.RandomHorizontalFlip(),
-                        transforms.RandomResizedCrop(
-                            size=(img_shape[0] + 4, img_shape[1] + 4),
-                            scale=(0.95, 1.0),
-                        ),
-                    ]
-                )
-            case "grayscale_example":
-                transform1 = transforms.Compose(
-                    [
-                        transforms.Resize(size=(img_shape[0] + 32, img_shape[1] + 32)),
-                        TrivialAugmentWideNoColor(),
-                        transforms.RandomHorizontalFlip(),
-                        transforms.RandomResizedCrop(
-                            size=(img_shape[0] + 8, img_shape[1] + 8),
                             scale=(0.95, 1.0),
                         ),
                     ]
@@ -380,57 +292,23 @@ def get_transforms(args: argparse.Namespace):
                         ),
                     ]
                 )
-            case "road_type_detection":
-                transform1p = transforms.Compose(
-                    [
-                        transforms.ToImageTensor(),
-                        transforms.Resize(size=(img_shape[0] + 32, img_shape[1] + 32)),
-                        TrivialAugmentWideNoColor(),
-                        transforms.RandomHorizontalFlip(),
-                        transforms.RandomResizedCrop(
-                            size=(img_shape[0] + 4, img_shape[1] + 4),
-                            scale=(0.95, 1.0),
-                        ),
-                    ]
-                )
             case _:
                 transform1p = None
 
         # transform2: second step of augmentation
         # applied twice on the result of transform1(p) to obtain two similar imgs
-        match args.dataset:
-            case "road_type_detection" | "CARS":
-                transform2 = transforms.Compose(
-                    [
-                        TrivialAugmentWideNoShapeWithColor(),
-                        transforms.RandomCrop(size=img_shape),  # includes crop
-                        transforms.ConvertImageDtype(),
-                        normalize,
-                    ]
-                )
-            case "grayscale_example":
-                transform2 = transforms.Compose(
-                    [
-                        TrivialAugmentWideNoShape(),
-                        transforms.RandomCrop(size=img_shape),  # includes crop
-                        transforms.Grayscale(3),
-                        transforms.ToImageTensor(),
-                        transforms.ConvertImageDtype(),
-                        normalize,
-                    ]
-                )
-            case _:
-                transform2 = transforms.Compose(
-                    [
-                        TrivialAugmentWideNoShape(),
-                        transforms.RandomCrop(size=img_shape),  # includes crop
-                        transforms.ToImageTensor(),
-                        transforms.ConvertImageDtype(),
-                        normalize,
-                    ]
-                )
+        transform2 = transforms.Compose(
+            [
+                TrivialAugmentWideNoShape(),
+                transforms.RandomCrop(size=img_shape),  # includes crop
+                transforms.ToImageTensor(),
+                transforms.ConvertImageDtype(),
+                normalize,
+            ]
+        )
     else:
         transform1 = transform_no_augment
+        transform1p = None
         transform2 = transform_no_augment
 
     return (

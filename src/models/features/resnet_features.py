@@ -1,11 +1,11 @@
+import copy
+import os
+from pathlib import Path
+
 import torch
 import torch.nn as nn
 import torch.utils.model_zoo as model_zoo
-import os
-import copy
-from dotenv import load_dotenv, find_dotenv
-from pathlib import Path
-
+from dotenv import find_dotenv, load_dotenv
 
 model_urls = {
     "resnet18": "https://download.pytorch.org/models/resnet18-5c106cde.pth",

@@ -1,16 +1,17 @@
+import argparse
 import os
 import shutil
-import argparse
 
+import matplotlib.pyplot as plt
 import numpy as np
 import torch
 import torchvision
-from torchvision import transforms
+from PIL import Image
+from PIL import ImageDraw as D
 from torch.utils.data import DataLoader
-from PIL import Image, ImageDraw as D
-import matplotlib.pyplot as plt
+from torchvision import transforms
 
-from models.PIPNet.visualize import get_patch_size, get_img_coordinates
+from models.PIPNet.visualize import get_img_coordinates, get_patch_size
 
 try:
     import cv2

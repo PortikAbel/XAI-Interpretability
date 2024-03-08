@@ -1,11 +1,10 @@
+import os
+from pathlib import Path
 from typing import Any
 
 import torch.nn as nn
 import torch.utils.model_zoo as model_zoo
-import os
-from dotenv import load_dotenv, find_dotenv
-from pathlib import Path
-
+from dotenv import find_dotenv, load_dotenv
 
 model_urls = {
     "vgg11": "https://download.pytorch.org/models/vgg11-bbd30ac9.pth",
@@ -21,17 +20,25 @@ model_urls = {
 load_dotenv(find_dotenv())
 model_dir = Path(os.getenv("PROJECT_ROOT")) / "models" / "pretrained"
 
+# fmt: off
 cfgs = {
     "A": [64, "M", 128, "M", 256, 256, "M", 512, 512, "M", 512, 512, "M"],
     "B": [64, 64, "M", 128, 128, "M", 256, 256, "M", 512, 512, "M", 512, 512, "M"],
-    "D": [64, 64, "M", 128, 128, "M", 256, 256, 256, "M", 512, 512, 512, "M", 512, 512, 512, "M"],
-    "E": [64, 64, "M", 128, 128, "M", 256, 256, 256, 256, "M", 512, 512, 512, 512, "M", 512, 512, 512, 512, "M"],
+    "D": [
+        64, 64, "M", 128, 128, "M", 256, 256, 256, "M",
+        512, 512, 512, "M", 512, 512, 512, "M"
+    ],
+    "E": [
+        64, 64, "M", 128, 128, "M", 256, 256, 256, 256, "M",
+        512, 512, 512, 512, "M", 512, 512, 512, 512, "M"
+    ],
 }
+# fmt: on
 
-class VGG_features(nn.Module):
 
+class VGGFeatures(nn.Module):
     def __init__(self, cfg, batch_norm=False, init_weights=True):
-        super(VGG_features, self).__init__()
+        super(VGGFeatures, self).__init__()
 
         self.batch_norm = batch_norm
 
@@ -62,7 +69,6 @@ class VGG_features(nn.Module):
                 nn.init.constant_(m.bias, 0)
 
     def _make_layers(self, cfg, batch_norm):
-
         self.n_layers = 0
 
         layers = []
@@ -103,16 +109,17 @@ class VGG_features(nn.Module):
 
     def __repr__(self):
         template = "VGG{}, batch_norm={}"
-        return template.format(self.num_layers() + 3,
-                               self.batch_norm)
+        return template.format(self.num_layers() + 3, self.batch_norm)
 
 
-def _vgg_features(arch: str, cfg: str, batch_norm: bool, pretrained: bool = False, **kwargs: Any):
+def _vgg_features(
+    arch: str, cfg: str, batch_norm: bool, pretrained: bool = False, **kwargs: Any
+):
     if pretrained:
         kwargs["init_weights"] = False
-    model = VGG_features(cfgs[cfg], batch_norm=batch_norm, **kwargs)
+    model = VGGFeatures(cfgs[cfg], batch_norm=batch_norm, **kwargs)
     if pretrained:
-        my_dict = model_zoo.load_url(model_urls[arch], model_dir=model_dir)
+        my_dict = model_zoo.load_url(model_urls[arch], model_dir=str(model_dir))
         keys_to_remove = set()
         for key in my_dict:
             if key.startswith("classifier"):
@@ -196,7 +203,6 @@ def vgg19_bn_features(pretrained=False, **kwargs):
 
 
 if __name__ == "__main__":
-
     vgg11_f = vgg11_features(pretrained=True)
     print(vgg11_f)
 

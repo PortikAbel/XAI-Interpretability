@@ -1,9 +1,9 @@
-import numpy as np
 import albumentations as A
-from albumentations.pytorch import ToTensorV2
-import torch
+import numpy as np
+import torch.utils.data
 import torchvision.datasets as datasets
 import torchvision.transforms as transforms
+from albumentations.pytorch import ToTensorV2
 
 from data.config import (
     dataset_config,
@@ -11,9 +11,6 @@ from data.config import (
     train_batch_size,
     train_push_batch_size,
 )
-from data.road_type_detection import RoadTypeDetectionDataset
-from data.road_condition_monitoring import RoadConditionMonitoringDataset
-
 
 # load the data
 data_dir = dataset_config["data_dir"]
@@ -22,12 +19,6 @@ img_shape = dataset_config["img_shape"]
 train_push_dir = dataset_config["train_push_dir"]
 test_dir = dataset_config["test_dir"]
 train_dir = dataset_config["train_dir"]
-
-
-if "RoadTypeDetection" in data_dir:
-    CSVAnnotatedDataset = RoadTypeDetectionDataset
-if "RoadConditionMonitoring" in data_dir:
-    CSVAnnotatedDataset = RoadConditionMonitoringDataset
 
 mean = dataset_config["mean"]
 std = dataset_config["std"]
@@ -52,10 +43,8 @@ normalizing_transform = transforms.Compose(
 train_augmentation = A.Compose(
     [
         A.augmentations.transforms.RandomBrightnessContrast(),
-        A.ShiftScaleRotate(
-            shift_limit=0.0625, scale_limit=0.1, rotate_limit=20, p=0.5
-        ),
-        A.augmentations.geometric.transforms.HorizontalFlip(p=0.5),
+        A.ShiftScaleRotate(shift_limit=0.0625, scale_limit=0.1, rotate_limit=20, p=0.5),
+        A.HorizontalFlip(p=0.5),
     ]
 )
 
@@ -71,35 +60,27 @@ class Transforms:
 
 # all datasets
 # train set
-if image_folder_structure:  # for MNIST, BDD and PascalVOC
-    if dataset_config["augm"]:  # data augmentation is added via albumentations
-        print("AUGMENTING")
-        normalize_augment = A.Compose(
-            [
-                A.ToFloat(
-                    max_value=256
-                ),  # 8-bits  # TODO: read max value from config
-                train_augmentation,  # augmentation with Albumentations
-                A.Normalize(
-                    mean=mean, std=std, max_pixel_value=1.0, p=1.0
-                ),  # TODO: read max value from config
-                ToTensorV2(),
-            ]
-        )
+if dataset_config["augm"]:  # data augmentation is added via albumentations
+    print("AUGMENTING")
+    normalize_augment = A.Compose(
+        [
+            A.ToFloat(max_value=256),  # 8-bits  # TODO: read max value from config
+            train_augmentation,  # augmentation with Albumentations
+            A.Normalize(
+                mean=mean, std=std, max_pixel_value=1.0, p=1.0
+            ),  # TODO: read max value from config
+            ToTensorV2(),
+        ]
+    )
 
-        train_dataset = datasets.ImageFolder(
-            train_dir,
-            transform=Transforms(transforms=normalize_augment),
-        )
-    else:
-        train_dataset = datasets.ImageFolder(
-            train_dir,
-            normalizing_transform,
-        )
+    train_dataset = datasets.ImageFolder(
+        train_dir,
+        transform=Transforms(transforms=normalize_augment),
+    )
 else:
-    train_dataset = CSVAnnotatedDataset(  # for RoadType and RoadCondition
-        subset="training",
-        augmentation=train_augmentation,  # augmenting with albumentations lib
+    train_dataset = datasets.ImageFolder(
+        train_dir,
+        normalizing_transform,
     )
 
 
@@ -118,29 +99,24 @@ train_loader = torch.utils.data.DataLoader(
 )
 
 # # push set
-if image_folder_structure:  # for MNIST and BDD
-    if dataset_config["augm"]:  # data augmentation is added via albumentations
-        normalize = A.Compose(  # TODO: is this neccessary for the push set?
-            [
-                A.ToFloat(max_value=256),  # 8-bits
-                A.Normalize(mean=mean, std=std, max_pixel_value=1.0, p=1.0),
-                ToTensorV2(),
-            ]
-        )
+if dataset_config["augm"]:  # data augmentation is added via albumentations
+    normalize = A.Compose(  # TODO: is this necessary for the push set?
+        [
+            A.ToFloat(max_value=256),  # 8-bits
+            A.Normalize(mean=mean, std=std, max_pixel_value=1.0, p=1.0),
+            ToTensorV2(),
+        ]
+    )
 
-        train_push_dataset = datasets.ImageFolder(
-            train_dir,
-            transform=Transforms(transforms=normalize),
-        )
+    train_push_dataset = datasets.ImageFolder(
+        train_dir,
+        transform=Transforms(transforms=normalize),
+    )
 
-    else:
-        train_push_dataset = datasets.ImageFolder(
-            train_push_dir,
-            base_transform,
-        )
-else:  # for RoadType and RoadCondition
-    train_push_dataset = CSVAnnotatedDataset(  # for RoadType and RoadCondition
-        subset="training",
+else:
+    train_push_dataset = datasets.ImageFolder(
+        train_push_dir,
+        base_transform,
     )
 
 train_push_loader = torch.utils.data.DataLoader(
@@ -150,32 +126,27 @@ train_push_loader = torch.utils.data.DataLoader(
 )
 
 # # validation set
-if image_folder_structure:
-    # TODO: change this to actually read validation set - if there in any
-    if dataset_config["augm"]:  # data augmentation is added via albumentations
-        print("VALID DATASET")
-        normalize_augment = A.Compose(
-            [
-                A.ToFloat(max_value=256),  # 8-bits
-                A.Normalize(
-                    mean=mean, std=std, max_pixel_value=1.0, p=1.0
-                ),  # TODO: read max value from config
-                ToTensorV2(),
-            ]
-        )
+# TODO: change this to actually read validation set - if there in any
+if dataset_config["augm"]:  # data augmentation is added via albumentations
+    print("VALID DATASET")
+    normalize_augment = A.Compose(
+        [
+            A.ToFloat(max_value=256),  # 8-bits
+            A.Normalize(
+                mean=mean, std=std, max_pixel_value=1.0, p=1.0
+            ),  # TODO: read max value from config
+            ToTensorV2(),
+        ]
+    )
 
-        valid_dataset = datasets.ImageFolder(
-            test_dir,
-            transform=Transforms(transforms=normalize_augment),
-        )
-    else:
-        valid_dataset = datasets.ImageFolder(
-            test_dir,
-            normalizing_transform,
-        )
+    valid_dataset = datasets.ImageFolder(
+        test_dir,
+        transform=Transforms(transforms=normalize_augment),
+    )
 else:
-    valid_dataset = CSVAnnotatedDataset(
-        subset="validation",
+    valid_dataset = datasets.ImageFolder(
+        test_dir,
+        normalizing_transform,
     )
 
 valid_sampler = torch.utils.data.RandomSampler(
@@ -193,30 +164,24 @@ valid_loader = torch.utils.data.DataLoader(
 )
 
 
-# # test set
-if image_folder_structure:
-    if dataset_config["augm"]:  # data augmentation is added via albumentations
-        print("TEST DATASET")
-        normalize_augment = A.Compose(
-            [
-                A.ToFloat(max_value=256),  # 8-bits
-                A.Normalize(mean=mean, std=std, max_pixel_value=1.0, p=1.0),
-                ToTensorV2(),
-            ]
-        )
+if dataset_config["augm"]:  # data augmentation is added via albumentations
+    print("TEST DATASET")
+    normalize_augment = A.Compose(
+        [
+            A.ToFloat(max_value=256),  # 8-bits
+            A.Normalize(mean=mean, std=std, max_pixel_value=1.0, p=1.0),
+            ToTensorV2(),
+        ]
+    )
 
-        test_dataset = datasets.ImageFolder(
-            test_dir,
-            transform=Transforms(transforms=normalize_augment),
-        )
-    else:
-        test_dataset = datasets.ImageFolder(
-            test_dir,
-            normalizing_transform,
-        )
+    test_dataset = datasets.ImageFolder(
+        test_dir,
+        transform=Transforms(transforms=normalize_augment),
+    )
 else:
-    test_dataset = CSVAnnotatedDataset(
-        subset="test",
+    test_dataset = datasets.ImageFolder(
+        test_dir,
+        normalizing_transform,
     )
 
 

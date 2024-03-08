@@ -1,21 +1,11 @@
 import argparse
+
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from torch import Tensor
-from models.features.resnet_features import (
-    resnet18_features,
-    resnet34_features,
-    resnet50_features,
-    resnet50_features_inat,
-    resnet101_features,
-    resnet152_features,
-)
-from models.features.convnext_features import (
-    convnext_tiny_26_features,
-    convnext_tiny_13_features,
-)
 
+from models.features import base_architecture_to_features
 
 
 class PIPNet(nn.Module):
@@ -56,18 +46,6 @@ class PIPNet(nn.Module):
             return proto_features, pooled, out
 
 
-base_architecture_to_features = {
-    "resnet18": resnet18_features,
-    "resnet34": resnet34_features,
-    "resnet50": resnet50_features,
-    "resnet50_inat": resnet50_features_inat,
-    "resnet101": resnet101_features,
-    "resnet152": resnet152_features,
-    "convnext_tiny_26": convnext_tiny_26_features,
-    "convnext_tiny_13": convnext_tiny_13_features,
-}
-
-
 # adapted from
 # https://pytorch.org/docs/stable/_modules/torch/nn/modules/linear.html#Linear
 class NonNegLinear(nn.Module):
@@ -96,15 +74,12 @@ class NonNegLinear(nn.Module):
         else:
             self.register_parameter("bias", None)
 
-    def forward(self, input: Tensor) -> Tensor:
-        return F.linear(input, torch.relu(self.weight), self.bias)
+    def forward(self, input_: Tensor) -> Tensor:
+        return F.linear(input_, torch.relu(self.weight), self.bias)
 
 
 def get_network(num_classes: int, args: argparse.Namespace):
-    if args.dataset in ("road_type_detection", "road_condition_monitoring"):
-        in_channels = 1
-    else:
-        in_channels = 3
+    in_channels = 3
     features = base_architecture_to_features[args.net](
         pretrained=not args.disable_pretrained, in_channels=in_channels
     )

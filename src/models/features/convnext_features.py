@@ -24,7 +24,7 @@ def convnext_tiny_26_features(pretrained=False, **kwargs):
         pretrained=pretrained, weights=models.ConvNeXt_Tiny_Weights.DEFAULT
     )
     with torch.no_grad():
-        model.avgpool = nn.Identity()
+        model.avg_pool = nn.Identity()
         model.classifier = nn.Identity()
         model = replace_convlayers_convnext(model, 100)
 
@@ -36,7 +36,7 @@ def convnext_tiny_13_features(pretrained=False, **kwargs):
         pretrained=pretrained, weights=models.ConvNeXt_Tiny_Weights.DEFAULT
     )
     with torch.no_grad():
-        model.avgpool = nn.Identity()
+        model.avg_pool = nn.Identity()
         model.classifier = nn.Identity()
         model = replace_convlayers_convnext(model, 300)
 

@@ -1,16 +1,13 @@
-from tqdm import tqdm
 import numpy as np
 import torch
-import torch.optim
-from torch.utils.data import DataLoader
 import torch.nn.functional as F
-from models.PIPNet.util.log import Log
+import torch.optim
+from sklearn.metrics import balanced_accuracy_score, f1_score, roc_auc_score
+from torch.utils.data import DataLoader
+from tqdm import tqdm
+
 from models.PIPNet.util.func import topk_accuracy
-from sklearn.metrics import (
-    roc_auc_score,
-    balanced_accuracy_score,
-    f1_score,
-)
+from models.PIPNet.util.log import Log
 
 
 @torch.no_grad()
