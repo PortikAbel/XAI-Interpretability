@@ -1,150 +1,14 @@
 import copy
 import os
-from pathlib import Path
 
 import torch
 import torch.nn as nn
 import torch.utils.model_zoo as model_zoo
-from dotenv import find_dotenv, load_dotenv
-
-model_urls = {
-    "resnet18": "https://download.pytorch.org/models/resnet18-5c106cde.pth",
-    "resnet34": "https://download.pytorch.org/models/resnet34-333f7ec4.pth",
-    "resnet50": "https://download.pytorch.org/models/resnet50-19c8e357.pth",
-    "resnet101": "https://download.pytorch.org/models/resnet101-5d3b4d8f.pth",
-    "resnet152": "https://download.pytorch.org/models/resnet152-b121ed2d.pth",
-}
+from models.resnet import Bottleneck, BasicBlock, conv1x1, model_urls
+from models import pretrained_models_dir
 
 
-load_dotenv(find_dotenv())
-model_dir = Path(os.getenv("PROJECT_ROOT")) / "models" / "pretrained"
-
-
-def conv3x3(in_planes, out_planes, stride=1):
-    """3x3 convolution with padding"""
-    return nn.Conv2d(
-        in_planes,
-        out_planes,
-        kernel_size=3,
-        stride=stride,
-        padding=1,
-        bias=False,
-    )
-
-
-def conv3x3_nopad(in_planes, out_planes, stride=1):
-    """3x3 convolution without padding"""
-    return nn.Conv2d(
-        in_planes,
-        out_planes,
-        kernel_size=3,
-        stride=stride,
-        padding=0,
-        bias=False,
-    )
-
-
-def conv1x1(in_planes, out_planes, stride=1):
-    """1x1 convolution"""
-    return nn.Conv2d(in_planes, out_planes, kernel_size=1, stride=stride, bias=False)
-
-
-class BasicBlock(nn.Module):
-    # class attribute
-    expansion = 1
-    num_layers = 2
-
-    def __init__(self, in_planes, planes, stride=1, downsample=None):
-        super(BasicBlock, self).__init__()
-        # only conv with possibly not 1 stride
-        self.conv1 = conv3x3(in_planes, planes, stride)
-        self.bn1 = nn.BatchNorm2d(planes)
-        self.relu = nn.ReLU(inplace=True)
-        self.conv2 = conv3x3(planes, planes)
-        self.bn2 = nn.BatchNorm2d(planes)
-
-        # if stride is not 1 then self.downsample cannot be None
-        self.downsample = downsample
-        self.stride = stride
-
-    def forward(self, x):
-        identity = x
-
-        out = self.conv1(x)
-        out = self.bn1(out)
-        out = self.relu(out)
-
-        out = self.conv2(out)
-        out = self.bn2(out)
-
-        if self.downsample is not None:
-            identity = self.downsample(x)
-
-        # the residual connection
-        out += identity
-        out = self.relu(out)
-
-        return out
-
-    def block_conv_info(self):
-        block_kernel_sizes = [3, 3]
-        block_strides = [self.stride, 1]
-        block_paddings = [1, 1]
-
-        return block_kernel_sizes, block_strides, block_paddings
-
-
-class Bottleneck(nn.Module):
-    # class attribute
-    expansion = 4
-    num_layers = 3
-
-    def __init__(self, in_planes, planes, stride=1, downsample=None):
-        super(Bottleneck, self).__init__()
-        self.conv1 = conv1x1(in_planes, planes)
-        self.bn1 = nn.BatchNorm2d(planes)
-        # only conv with possibly not 1 stride
-        self.conv2 = conv3x3(planes, planes, stride)
-        self.bn2 = nn.BatchNorm2d(planes)
-        self.conv3 = conv1x1(planes, planes * self.expansion)
-        self.bn3 = nn.BatchNorm2d(planes * self.expansion)
-        self.relu = nn.ReLU(inplace=True)
-
-        # if stride is not 1 then self.downsample cannot be None
-        self.downsample = downsample
-        self.stride = stride
-
-    def forward(self, x):
-        identity = x
-
-        out = self.conv1(x)
-        out = self.bn1(out)
-        out = self.relu(out)
-
-        out = self.conv2(out)
-        out = self.bn2(out)
-        out = self.relu(out)
-
-        out = self.conv3(out)
-        out = self.bn3(out)
-
-        if self.downsample is not None:
-            identity = self.downsample(x)
-
-        out += identity
-        out = self.relu(out)
-
-        return out
-
-    def block_conv_info(self):
-        block_kernel_sizes = [1, 3, 1]
-        block_strides = [1, self.stride, 1]
-        block_paddings = [0, 1, 0]
-
-        return block_kernel_sizes, block_strides, block_paddings
-
-
-class ResNet(nn.Module):
+class ResNet_features(nn.Module):
     """
     the convolutional layers of ResNet
     the average pooling and final fully convolutional layer is removed
@@ -153,7 +17,7 @@ class ResNet(nn.Module):
     def __init__(
         self, block, layers, num_classes=1000, zero_init_residual=False, in_channels=3
     ):
-        super(ResNet, self).__init__()
+        super(ResNet_features, self).__init__()
 
         self.in_planes = 64
 
@@ -276,16 +140,12 @@ def _resnet_features(
     pretrained: bool = False,
     **kwargs
 ):
-    model = ResNet(block, layers, **kwargs)
+    model = ResNet_features(block, layers, **kwargs)
 
     if pretrained:
-        my_dict = model_zoo.load_url(model_urls[arch], model_dir=model_dir)
+        my_dict = model_zoo.load_url(model_urls[arch], model_dir=pretrained_models_dir)
         my_dict.pop("fc.weight")
         my_dict.pop("fc.bias")
-        if model.conv1.weight.size(1) == 1:
-            conv1_w = my_dict.pop("conv1.weight")
-            conv1_w = torch.sum(conv1_w, dim=1, keepdim=True)
-            my_dict["conv1.weight"] = conv1_w
         model.load_state_dict(my_dict, strict=False)
 
     return model
@@ -322,7 +182,7 @@ def resnet50_features_inat(pretrained=False, **kwargs):
     Args:
         pretrained (bool): If True, returns a model pre-trained on Inaturalist2017
     """
-    model = ResNet(Bottleneck, [3, 4, 6, 3], **kwargs)
+    model = ResNet_features(Bottleneck, [3, 4, 6, 3], **kwargs)
     if pretrained:
         # use BBN pretrained weights of the conventional learning branch
         #   (from BBN.iNaturalist2017.res50.180epoch.best_model.pth)

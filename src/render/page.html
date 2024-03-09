@@ -9,7 +9,7 @@
 	<body>
 
 		<div id="container"></div>
-		
+
 
 		<!-- Import maps polyfill -->
 		<!-- Remove this when import maps will be widely supported -->
@@ -37,7 +37,7 @@
 			import { GLTFLoader } from './js/three.js-master/examples/jsm/loaders/GLTFLoader.js';
 			import { TextGeometry } from './js/three.js-master/examples/jsm/geometries/TextGeometry.js';
 			*/
-			
+
 			import * as THREE from 'three';
 
 
@@ -46,7 +46,7 @@
 			import { FontLoader } from './jsm/loaders/FontLoader.js';
 			import { GLTFLoader } from './jsm/loaders/GLTFLoader.js';
 			import { TextGeometry } from './jsm/geometries/TextGeometry.js';
-			
+
 			var render_mode = <%- JSON.stringify(render_mode) %>
 
 			var camera_distance = <%- JSON.stringify(camera_distance) %>
@@ -132,7 +132,7 @@
 			});
 
 			bg_color = bg_color.split(',');
-			
+
 
 
 			let container;
@@ -157,9 +157,9 @@
 				document.body.appendChild( container );
 
 				camera = new THREE.PerspectiveCamera( 40, window.innerWidth / window.innerHeight, 1, 2500 );
-				
-				
-				
+
+
+
 				var pitch=camera_pitch
 				var roll=camera_roll
 				var yaw=0
@@ -269,7 +269,7 @@
 					//flamingo.traverse((o) => {
 					//  if (o.isMesh) o.material = newMaterial;
 					//});
-					
+
 					//flamingo.position.set(2,-1.1,1.4);
 					var s = 20;
 					base.scale.set( s, s, s );
@@ -322,7 +322,7 @@
 					});
 					*/
 
-					
+
 
 				} );
 
@@ -426,7 +426,7 @@
 					} );
 					part04.traverse((o) => {
 						if (o.isMesh) o.material = material;
-						
+
 					});
 
 					var diffuseColor;
@@ -443,7 +443,7 @@
 					} );
 					part04.traverse((o) => {
 						if (o.isMesh && o.name == 'Sphere001') o.material = material;
-						
+
 					});
 
 					//var newMaterial = new THREE.MeshStandardMaterial({color: 0xff0000});
@@ -481,7 +481,7 @@
 					} );
 					part05.traverse((o) => {
 						if (o.isMesh) o.material = material;
-						
+
 					});
 
 
@@ -498,7 +498,7 @@
 					} );
 					part05.traverse((o) => {
 						if (o.isMesh && o.name == 'Sphere001') o.material = material;
-						
+
 					});
 
 
@@ -538,7 +538,7 @@
 					} );
 					part06.traverse((o) => {
 						if (o.isMesh) o.material = material;
-						
+
 					});
 
 
@@ -578,7 +578,7 @@
 					} );
 					part07.traverse((o) => {
 						if (o.isMesh) o.material = material;
-						
+
 					});
 
 
@@ -590,7 +590,7 @@
 					//part06.rotation.y = + 0.2;
 					var s = 35;
 					part07.scale.set( s, -s, s );
-					
+
 					scene.add( part07 );
 					part07.rotation.x = - 0.3;
 					part07.position.set(-20,5,10);
@@ -618,7 +618,7 @@
 					} );
 					part08.traverse((o) => {
 						if (o.isMesh) o.material = material;
-						
+
 					});
 
 
@@ -630,7 +630,7 @@
 					//part06.rotation.y = + 0.2;
 					var s = 35;
 					part08.scale.set( -s, -s, s );
-					
+
 					scene.add( part08 );
 					part08.rotation.x = - 0.3;
 					part08.position.set(+20,5,10);
@@ -662,7 +662,7 @@
 						diffuseColor = new THREE.Color( bg_color[i] );
 					} else if (render_mode == 'part_map') {
 						//color_string = "rgb(255, 0, " + i.toString() + ")"
-						
+
 						diffuseColor = new THREE.Color( 0xcccccc + i ).convertSRGBToLinear();
 					}
 					var material = new THREE.MeshToonMaterial( {
@@ -718,7 +718,7 @@
 					bg_geometry.rotation.z = bg_rot_z[i];
 				}
 
-				
+
 
 
 
@@ -735,7 +735,7 @@
 				} else if (render_mode == 'part_map') {
 					scene.add( new THREE.AmbientLight( 0xffffff ) );
 				}
-				
+
 				if (render_mode == 'default') {
 					var pointLight = new THREE.PointLight( 0xffffff, 4, 800 );
 					particleLight.add( pointLight );
@@ -791,11 +791,11 @@
 				if (render_mode == 'default') {
 					effect = new OutlineEffect( renderer );
 				}
-				
+
 
 				//
 
-				
+
 
 				const controls = new OrbitControls( camera, renderer.domElement );
 				controls.minDistance = 200;
@@ -804,8 +804,8 @@
 				window.addEventListener( 'resize', onWindowResize );
 
 
-				
-				
+
+
 
 			}
 
@@ -841,7 +841,7 @@
 				} else if (render_mode == 'part_map') {
 					renderer.render( scene, camera );
 				}
-				
+
 
 			}
 

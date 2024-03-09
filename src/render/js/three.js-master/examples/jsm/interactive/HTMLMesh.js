@@ -395,7 +395,7 @@ function html2canvas( element ) {
 						const currentTextAlign = context.textAlign;
 
 						context.textAlign = 'center';
-						
+
 						const properties = {
 							color: accentTextColor,
 							fontFamily: style.fontFamily,

@@ -46,7 +46,7 @@ a, button, input, select {
 }
 
 @media all and ( max-width: 640px ) {
-	.lil-gui.root { 
+	.lil-gui.root {
 		right: auto;
 		top: auto;
 		max-height: 50%;

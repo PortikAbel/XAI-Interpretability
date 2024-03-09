@@ -8,8 +8,8 @@ import torch
 from torch.utils.data import DataLoader
 
 import models.ProtoPNet.model as model_ppnet
-from custom_evaluation.explainer_wrapper.ProtoPNet import ProtoPNetExplainer
-from custom_evaluation.model_wrapper.ProtoPNet import ProtoPNetModel
+from evaluation.explainer_wrapper.ProtoPNet import ProtoPNetExplainer
+from evaluation.model_wrapper.ProtoPNet import ProtoPNetModel
 from data.funny_birds import FunnyBirds
 
 

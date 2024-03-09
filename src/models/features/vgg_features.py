@@ -1,10 +1,8 @@
-import os
-from pathlib import Path
 from typing import Any
 
 import torch.nn as nn
 import torch.utils.model_zoo as model_zoo
-from dotenv import find_dotenv, load_dotenv
+from models import pretrained_models_dir
 
 model_urls = {
     "vgg11": "https://download.pytorch.org/models/vgg11-bbd30ac9.pth",
@@ -17,8 +15,6 @@ model_urls = {
     "vgg19_bn": "https://download.pytorch.org/models/vgg19_bn-c79401a0.pth",
 }
 
-load_dotenv(find_dotenv())
-model_dir = Path(os.getenv("PROJECT_ROOT")) / "models" / "pretrained"
 
 # fmt: off
 cfgs = {
@@ -37,7 +33,6 @@ cfgs = {
 
 
 class VGG_features(nn.Module):
-
     def __init__(self, cfg, batch_norm=False, init_weights=True, in_channels=3):
         super(VGG_features, self).__init__()
 
@@ -70,7 +65,6 @@ class VGG_features(nn.Module):
                 nn.init.constant_(m.bias, 0)
 
     def _make_layers(self, cfg, batch_norm, in_channels=3):
-
         self.n_layers = 0
 
         layers = []
@@ -118,9 +112,11 @@ def _vgg_features(
 ):
     if pretrained:
         kwargs["init_weights"] = False
-    model = VGGFeatures(cfgs[cfg], batch_norm=batch_norm, **kwargs)
+    model = VGG_features(cfgs[cfg], batch_norm=batch_norm, **kwargs)
     if pretrained:
-        my_dict = model_zoo.load_url(model_urls[arch], model_dir=str(model_dir))
+        my_dict = model_zoo.load_url(
+            model_urls[arch], model_dir=str(pretrained_models_dir)
+        )
         keys_to_remove = set()
         for key in my_dict:
             if key.startswith("classifier"):

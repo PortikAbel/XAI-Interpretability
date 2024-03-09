@@ -6,7 +6,7 @@ import numpy as np
 import torch
 import torch.nn as nn
 
-from custom_evaluation.explainer_wrapper.base import AbstractAttributionExplainer
+from evaluation.explainer_wrapper.base import AbstractAttributionExplainer
 
 
 # this should in the end be the final explainer

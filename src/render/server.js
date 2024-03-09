@@ -21,7 +21,7 @@ app.get('/render', function (req, res) {
                 '--enable-surface-synchronization'
             ]
         } )
-        
+
         const page = await browser.newPage()
 
         await page.setViewport({ width: 1256, height: 1256 })
@@ -30,7 +30,7 @@ app.get('/render', function (req, res) {
         x = await page.screenshot({ path: 'my_screenshot.png' , encoding:'base64'})
         await browser.close()
         res.end( x );
-        
+
     })()
 })
 
@@ -85,5 +85,3 @@ var server = app.listen(8081, function () {
    var port = server.address().port
    console.log("Example app listening at http://%s:%s", host, port)
 })
-
-

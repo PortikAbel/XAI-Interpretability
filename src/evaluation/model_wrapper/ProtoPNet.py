@@ -1,4 +1,4 @@
-from custom_evaluation.model_wrapper.base import AbstractModel
+from evaluation.model_wrapper.base import AbstractModel
 
 
 class ProtoPNetModel(AbstractModel):
