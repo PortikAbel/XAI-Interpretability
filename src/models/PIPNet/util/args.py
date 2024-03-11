@@ -28,10 +28,9 @@ def get_args() -> argparse.Namespace:
         "--validation_size",
         type=float,
         default=0.0,
-        help="""Split between training and validation set.
-            Can be zero when there is a separate test or validation directory.
-            Should be between 0 and 1.
-            Used for partimagenet (e.g. 0.2)""",
+        help="Split between training and validation set. Can be zero when "
+             "there is a separate test or validation directory. Should be "
+             "between 0 and 1. Used for partimagenet (e.g. 0.2)",
     )
 
     image_size_group = parser.add_argument_group(
@@ -54,21 +53,19 @@ def get_args() -> argparse.Namespace:
         "--net",
         type=str,
         default="convnext_tiny_26",
-        help="""Base network used as backbone of PIP-Net.
-            Default is convnext_tiny_26 with adapted strides
-            to output 26x26 latent representations.
-            Other option is convnext_tiny_13 that outputs 13x13
-            (smaller and faster to train, less fine-grained).
-            Pretrained network on iNaturalist is only available for resnet50_inat.
-            Options are: resnet18, resnet34, resnet50, resnet50_inat,
-                resnet101, resnet152,
-                convnext_tiny_26 and convnext_tiny_13.""",
+        help="Base network used as backbone of PIP-Net. Default is convnext_tiny_26 "
+             "with adapted strides to output 26x26 latent representations. "
+             "Other option is convnext_tiny_13 that outputs 13x13 (smaller and faster "
+             "to train, less fine-grained). Pretrained network on iNaturalist is only "
+             "available for resnet50_inat. "
+             "Options are: resnet18, resnet34, resnet50, resnet50_inat, "
+             "resnet101, resnet152, convnext_tiny_26 and convnext_tiny_13.",
     )
     net_group.add_argument(
         "--state_dict_dir_net",
         type=Path,
-        help="""The directory containing a state dict with a pretrained PIP-Net.
-            E.g., ./code/PIPNet/runs/run_pipnet/checkpoints/net_pretrained""",
+        help="The directory containing a state dict with a pretrained PIP-Net. "
+             "E.g., ./code/PIPNet/runs/run_pipnet/checkpoints/net_pretrained",
     )
 
     net_parameter_group = parser.add_argument_group(
@@ -78,8 +75,8 @@ def get_args() -> argparse.Namespace:
         "--batch_size",
         type=np.uint16,
         default=64,
-        help="""Batch size when training the model using minibatch gradient descent.
-            Batch size is multiplied with number of available GPUs""",
+        help="Batch size when training the model using minibatch gradient descent. "
+             "Batch size is multiplied with number of available GPUs",
     )
     net_parameter_group.add_argument(
         "--batch_size_pretrain",
@@ -91,7 +88,7 @@ def get_args() -> argparse.Namespace:
         "--train_backbone_during_pretrain",
         action="store_true",
         help="To train the whole backbone during pretrain "
-        "(e.g. if dataset is very different from ImageNet)",
+             "(e.g. if dataset is very different from ImageNet)",
     )
     net_parameter_group.add_argument(
         "--epochs",
@@ -103,23 +100,23 @@ def get_args() -> argparse.Namespace:
         "--epochs_pretrain",
         type=np.uint16,
         default=10,
-        help="""Number of epochs to pre-train the prototypes (first training stage).
-            Recommended to train at least until the align loss < 1""",
+        help="Number of epochs to pre-train the prototypes (first training stage)."
+             "Recommended to train at least until the align loss < 1",
     )
     net_parameter_group.add_argument(
         "--freeze_epochs",
         type=np.uint16,
         default=10,
-        help="""Number of epochs where pretrained features_net will be frozen
-            while training classification layer (and last layer(s) of backbone)""",
+        help="Number of epochs where pretrained features_net will be frozen"
+             "while training classification layer (and last layer(s) of backbone)",
     )
     net_parameter_group.add_argument(
         "--epochs_to_finetune",
         type=np.uint16,
         default=3,
-        help="""during finetuning, only train classification layer and freeze rest.
-            usually done for a few epochs
-            (at least 1, more depends on size of dataset)""",
+        help="during fine-tuning, only train classification layer and freeze rest. "
+             "Usually done for a few epochs (at least 1, more depends "
+             "on size of dataset)",
     )
     net_parameter_group.add_argument(
         "--disable_cuda",
@@ -130,24 +127,22 @@ def get_args() -> argparse.Namespace:
         "--num_features",
         type=int,
         default=0,
-        help="""Number of prototypes.
-            When zero (default) the number of prototypes
-            is the number of output channels of backbone.
-            If this value is set, then a 1x1 conv layer will be added.
-            Recommended to keep 0, but can be increased
-            when number of classes > num output channels in backbone.""",
+        help="Number of prototypes. When zero (default) the number of prototypes "
+             "is the number of output channels of backbone. If this value is set, "
+             "then a 1x1 conv layer will be added. Recommended to keep 0, but can "
+             "be increased when number of classes > num output channels in backbone.",
     )
     net_parameter_group.add_argument(
         "--disable_pretrained",
         action="store_true",
-        help="""When set, the backbone network is initialized with random weights
-            instead of being pretrained on another dataset).""",
+        help="When set, the backbone network is initialized with random weights"
+             "instead of being pretrained on another dataset).",
     )
     net_parameter_group.add_argument(
         "--bias",
         action="store_true",
-        help="""Flag that indicates whether to include a trainable bias
-            in the linear classification layer.""",
+        help="Flag that indicates whether to include a trainable bias"
+             "in the linear classification layer.",
     )
 
     optimizer_group = parser.add_argument_group(
@@ -163,22 +158,22 @@ def get_args() -> argparse.Namespace:
         "--lr",
         type=float,
         default=0.05,
-        help="""The optimizer learning rate for training the weights
-            from prototypes to classes""",
+        help="The optimizer learning rate for training the weights"
+             "from prototypes to classes",
     )
     optimizer_group.add_argument(
         "--lr_block",
         type=float,
         default=0.0005,
-        help="""The optimizer learning rate
-            for training the last conv layers of the backbone""",
+        help="The optimizer learning rate for training the "
+             "last conv layers of the backbone",
     )
     optimizer_group.add_argument(
         "--lr_net",
         type=float,
         default=0.0005,
-        help="""The optimizer learning rate for the backbone.
-            Usually similar as lr_block.""",
+        help="The optimizer learning rate for the backbone."
+             "Usually similar as lr_block.",
     )
     optimizer_group.add_argument(
         "--weight_decay",
@@ -193,30 +188,28 @@ def get_args() -> argparse.Namespace:
     loss_group.add_argument(
         "--weighted_loss",
         action="store_true",
-        help="""Flag that weights the loss based on the class balance of the dataset.
-            Recommended to use when data is imbalanced.""",
+        help="Flag that weights the loss based on the class balance of the dataset. "
+             "Recommended to use when data is imbalanced.",
     )
     loss_group.add_argument(
         "--tanh_loss",
         action="store_true",
-        help="""tanh loss regulates that every prototype
-            should be at least oncepresent in a mini-batch.""",
+        help="tanh loss regulates that every prototype should be at "
+             "least once present in a mini-batch.",
     )
     loss_group.add_argument(
         "--unif_loss",
         action="store_true",
-        help="""Our tanh-loss optimizes for uniformity
-            and was sufficient for our experiments.
-            However, if pretraining of the prototypes
-            is not working well for your dataset,
-            you may try to add another uniformity loss
-            from https://www.tongzhouwang.info/hypersphere/""",
+        help="Our tanh-loss optimizes for uniformity and was sufficient for "
+             "our experiments. However, if pretraining of the prototypes is not "
+             "working well for your dataset, you may try to add another uniformity "
+             "loss from https://www.tongzhouwang.info/hypersphere/",
     )
     loss_group.add_argument(
         "--variance_loss",
         action="store_true",
-        help="""Regularizer term that enforces variance of features
-            from https://arxiv.org/abs/2105.04906""",
+        help="Regularizer term that enforces variance of features "
+             "from https://arxiv.org/abs/2105.04906",
     )
 
     log_group = parser.add_argument_group(
@@ -226,20 +219,20 @@ def get_args() -> argparse.Namespace:
     log_group.add_argument(
         "--log_dir",
         type=Path,
-        default="./runs/run_pipnet",
+        default="run_pipnet",
         help="The directory in which train progress should be logged",
     )
     log_group.add_argument(
         "--dir_for_saving_images",
         type=str,
         default="visualization_results",
-        help="Directoy for saving the prototypes and explanations",
+        help="Directory for saving the prototypes and explanations",
     )
     log_group.add_argument(
         "--log_prototype_activations_violin_plot",
         action="store_true",
-        help="""Logs a violinplot in tensorboard
-            for every prototype with their activations during train step""",
+        help="Logs a violin plot in tensorboard for every prototype "
+             "with their activations during train step",
     )
 
     visualization_group = parser.add_argument_group(
@@ -248,14 +241,14 @@ def get_args() -> argparse.Namespace:
     visualization_group.add_argument(
         "--visualize_topk",
         action="store_true",
-        help="""Flag that indicates whether to visualize the top k
-            activations of each prototype from test set.""",
+        help="Flag that indicates whether to visualize the top k "
+             "activations of each prototype from test set.",
     )
     visualization_group.add_argument(
         "--visualize_predictions",
         action="store_true",
-        help="""Flag that indicates whether to visualize the predictions
-            on test data and the learned prototypes.""",
+        help="Flag that indicates whether to visualize the predictions "
+             "on test data and the learned prototypes.",
     )
 
     evaluation_group = parser.add_argument_group(
@@ -264,26 +257,25 @@ def get_args() -> argparse.Namespace:
     evaluation_group.add_argument(
         "--evaluate_purity",
         action="store_true",
-        help="""Flag that indicates whether to evaluate purity of prototypes.
-            prototype purity is a metric for measuring the overlap between
-            the position of learned prototypes and labeled feature centers
-            in the image space. Currently is measureable only on CUB-200-2011.""",
+        help="Flag that indicates whether to evaluate purity of prototypes. "
+             "Prototype purity is a metric for measuring the overlap between "
+             "the position of learned prototypes and labeled feature centers "
+             "in the image space. Currently is measurable only on CUB-200-2011.",
     )
     evaluation_group.add_argument(
         "--evaluate_ood",
         action="store_true",
-        help="""Flag that indicates whether to evaluate OoD detection
-            on other datasets than train set.""",
+        help="Flag that indicates whether to evaluate OoD "
+             "detection on other datasets than train set.",
     )
     evaluation_group.add_argument(
         "--extra_test_image_folder",
         type=str,
         default="./experiments",
-        help="""Folder with images that PIP-Net will predict and explain,
-            that are not in the training or test set.
-            E.g. images with 2 objects or OOD image.
-            Images should be in subfolder.
-            E.g. images in ./experiments/images/, and argument --./experiments""",
+        help="Folder with images that PIP-Net will predict and explain, "
+             "that are not in the training or test set. E.g. images with "
+             "2 objects or OOD image. Images should be in sub-folder. "
+             "E.g. images in ./experiments/images/, and argument --./experiments",
     )
 
     general_group = parser.add_argument_group("General", "Specifies general arguments")
@@ -291,9 +283,9 @@ def get_args() -> argparse.Namespace:
         "--seed",
         type=int,
         default=1,
-        help="""Random seed. Note that there will still be differences between runs
-            due to nondeterminism.
-            See https://pytorch.org/docs/stable/notes/randomness.html""",
+        help="Random seed. Note that there will still be differences between "
+             "runs due to nondeterminism. "
+             "See https://pytorch.org/docs/stable/notes/randomness.html",
     )
     general_group.add_argument(
         "--gpu_ids",
@@ -318,7 +310,7 @@ def get_args() -> argparse.Namespace:
 
     args.image_size = np.array((args.image_height, args.image_width))
 
-    args.log_dir = Path(os.getenv("PROJECT_ROOT")) / "models" / "PIPNet" / args.log_dir
+    args.log_dir = Path(os.getenv("PROJECT_ROOT")) / "runs" / "PIPNet" / args.log_dir
     args.log_dir = args.log_dir.resolve()
     args.log_dir.mkdir(parents=True, exist_ok=True)
 
@@ -350,7 +342,7 @@ def save_args(args: argparse.Namespace, directory_path: Path) -> None:
 
 
 def get_optimizer_nn(
-    net, args: argparse.Namespace
+        net, args: argparse.Namespace
 ) -> tuple[torch.optim.Optimizer, torch.optim.Optimizer, list, list, list]:
     torch.manual_seed(args.seed)
     torch.cuda.manual_seed_all(args.seed)
@@ -402,7 +394,7 @@ def get_optimizer_nn(
             if args.bias:
                 classification_bias.append(param)
 
-    paramlist_net = [
+    param_list_net = [
         {
             "params": params_backbone,
             "lr": args.lr_net,
@@ -436,7 +428,7 @@ def get_optimizer_nn(
 
     if args.optimizer == "Adam":
         optimizer_net = torch.optim.AdamW(
-            paramlist_net, lr=args.lr, weight_decay=args.weight_decay
+            param_list_net, lr=args.lr, weight_decay=args.weight_decay
         )
         optimizer_classifier = torch.optim.AdamW(
             paramlist_classifier, lr=args.lr, weight_decay=args.weight_decay
