@@ -239,7 +239,7 @@ def get_transforms(args: argparse.Namespace):
     transform_no_augment = transforms.Compose(
         [
             transforms.Resize(size=img_shape),
-            transforms.ToImageTensor(),
+            transforms.ToImage(),
             transforms.ConvertImageDtype(),
             normalize,
         ]
@@ -301,7 +301,7 @@ def get_transforms(args: argparse.Namespace):
             [
                 TrivialAugmentWideNoShape(),
                 transforms.RandomCrop(size=img_shape),  # includes crop
-                transforms.ToImageTensor(),
+                transforms.ToImage(),
                 transforms.ConvertImageDtype(),
                 normalize,
             ]
