@@ -293,7 +293,7 @@ def get_transforms(args: argparse.Namespace):
                     ]
                 )
             case _:
-                transform1p = None
+                transform1p = transform_no_augment
 
         # transform2: second step of augmentation
         # applied twice on the result of transform1(p) to obtain two similar imgs
@@ -308,7 +308,7 @@ def get_transforms(args: argparse.Namespace):
         )
     else:
         transform1 = transform_no_augment
-        transform1p = None
+        transform1p = transform_no_augment
         transform2 = transform_no_augment
 
     return (
