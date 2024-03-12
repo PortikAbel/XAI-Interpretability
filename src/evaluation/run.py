@@ -6,7 +6,7 @@ from captum.attr import IntegratedGradients, InputXGradient
 
 from models.resnet import resnet50
 from models.vgg import vgg16
-from evaluation.model_wrapper import StandardModel
+from evaluation.model_wrapper.standard import StandardModel
 from evaluation.protocols import (
     accuracy_protocol,
     controlled_synthetic_data_check_protocol,
@@ -17,11 +17,7 @@ from evaluation.protocols import (
     distractibility_protocol,
     background_independence_protocol,
 )
-from evaluation.explainer_wrapper import (
-    CaptumAttributionExplainer,
-    ViTRolloutExplainer,
-    ViTCheferLRPExplainer,
-)
+from evaluation.explainer_wrapper.captum import CaptumAttributionExplainer
 
 
 parser = argparse.ArgumentParser(description="FunnyBirds - Explanation Evaluation")
@@ -40,8 +36,6 @@ parser.add_argument(
     choices=[
         "IntegratedGradients",
         "InputXGradient",
-        "Rollout",
-        "CheferLRP",
         "CustomExplainer",
     ],
     help="explainer",
@@ -150,10 +144,6 @@ def main():
         explainer = IntegratedGradients(model)
         baseline = torch.zeros((1, 3, 256, 256)).to(device)
         explainer = CaptumAttributionExplainer(explainer, baseline=baseline)
-    elif args.explainer == "Rollout":
-        explainer = ViTRolloutExplainer(model)
-    elif args.explainer == "CheferLRP":
-        explainer = ViTCheferLRPExplainer(model)
     elif args.explainer == "CustomExplainer":
         ...
     else:
