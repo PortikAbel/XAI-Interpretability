@@ -1,3 +1,5 @@
+import os
+import numpy as np
 import argparse
 import random
 
@@ -6,6 +8,8 @@ from captum.attr import IntegratedGradients, InputXGradient
 
 from models.resnet import resnet50
 from models.vgg import vgg16
+import models.ProtoPNet.model as model_ppnet
+from evaluation.model_wrapper.ProtoPNet import ProtoPNetModel
 from evaluation.model_wrapper.standard import StandardModel
 from evaluation.protocols import (
     accuracy_protocol,
@@ -18,6 +22,7 @@ from evaluation.protocols import (
     background_independence_protocol,
 )
 from evaluation.explainer_wrapper.captum import CaptumAttributionExplainer
+from evaluation.explainer_wrapper.ProtoPNet import ProtoPNetExplainer
 
 
 parser = argparse.ArgumentParser(description="FunnyBirds - Explanation Evaluation")
@@ -27,7 +32,7 @@ parser.add_argument(
 parser.add_argument(
     "--model",
     required=True,
-    choices=["resnet50", "vgg16", "vit_b_16"],
+    choices=["resnet50", "vgg16", "vit_b_16", "ProtoPNet"],
     help="model architecture",
 )
 parser.add_argument(
@@ -36,7 +41,7 @@ parser.add_argument(
     choices=[
         "IntegratedGradients",
         "InputXGradient",
-        "CustomExplainer",
+        "ProtoPNet",
     ],
     help="explainer",
 )
@@ -124,6 +129,33 @@ def main():
     elif args.model == "vgg16":
         model = vgg16(num_classes=50)
         model = StandardModel(model)
+    elif args.model == "ProtoPNet":
+        base_architecture = "resnet50"
+        img_size = 256
+        prototype_shape = (50 * 10, 128, 1, 1)
+        num_classes = 50
+        prototype_activation_function = "log"
+        add_on_layers_type = "regular"
+        load_model_dir = args.load_model_dir
+        epoch_number_str = args.epoch_number_str
+        load_img_dir = os.path.join(load_model_dir, "img")
+        prototype_info = np.load(
+            os.path.join(
+                load_img_dir, "epoch-" + epoch_number_str, "bb" + epoch_number_str + ".npy"
+            )
+        )
+
+        print("REMEMBER TO ADJUST PROTOPNET PATH AND EPOCH")
+        model = model_ppnet.construct_PPNet(
+            base_architecture=base_architecture,
+            pretrained=True,
+            img_size=img_size,
+            prototype_shape=prototype_shape,
+            num_classes=num_classes,
+            prototype_activation_function=prototype_activation_function,
+            add_on_layers_type=add_on_layers_type,
+        )
+        model = ProtoPNetModel(model, load_model_dir, epoch_number_str)
     else:
         print("Model not implemented")
 
@@ -144,8 +176,8 @@ def main():
         explainer = IntegratedGradients(model)
         baseline = torch.zeros((1, 3, 256, 256)).to(device)
         explainer = CaptumAttributionExplainer(explainer, baseline=baseline)
-    elif args.explainer == "CustomExplainer":
-        ...
+    elif args.explainer == "ProtoPNet":
+        explainer = ProtoPNetExplainer(model)
     else:
         print("Explainer not implemented")
 

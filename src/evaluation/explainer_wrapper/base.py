@@ -37,17 +37,13 @@ class AbstractAttributionExplainer(AbstractExplainer):
         """
         assert image.shape[0] == 1  # B = 1
         attribution = self.explain(image, target=target)
-        # m = nn.ReLU()
-        # positive_attribution = m(attribution)
 
         part_importances = self.get_part_importance(
             image, part_map, target, colors_to_part, with_bg=with_bg
         )
-        # total_attribution_in_parts = 0
-        # for key in part_importances.keys():
-        #    total_attribution_in_parts += abs(part_importances[key])
 
         important_parts_for_thresholds = []
+
         for threshold in thresholds:
             important_parts = []
             for key in part_importances.keys():
@@ -62,7 +58,7 @@ class AbstractAttributionExplainer(AbstractExplainer):
         """
         Outputs parts of the bird that are important according to the explanation.
         This must be reimplemented for different explanation types.
-        Output is of the form: ['beak', 'wing', 'tail']
+        Output is of the form: {'beak': 0.5, 'wing':, 'tail':}
         """
         assert image.shape[0] == 1  # B = 1
         attribution = self.explain(image, target=target)
@@ -70,7 +66,6 @@ class AbstractAttributionExplainer(AbstractExplainer):
         part_importances = {}
 
         dilation1 = nn.MaxPool2d(5, stride=1, padding=2)
-        # dilation1 = nn.MaxPool2d(25, stride=1, padding=12)
         for part_color in colors_to_part.keys():
             torch_color = torch.zeros(1, 3, 1, 1).to(image.device)
             torch_color[0, 0, 0, 0] = part_color[0]
@@ -82,8 +77,6 @@ class AbstractAttributionExplainer(AbstractExplainer):
 
             color_available_dilated = dilation1(color_available)
             attribution_in_part = attribution * color_available_dilated
-            # attribution_in_part = (attribution_in_part.sum() /
-            #                        (color_available_dilated.sum() + 1e-8))
             attribution_in_part = attribution_in_part.sum()
 
             part_string = colors_to_part[part_color]
@@ -105,8 +98,6 @@ class AbstractAttributionExplainer(AbstractExplainer):
                 color_available_dilated = dilation1(color_available)
 
                 attribution_in_part = attribution * color_available_dilated
-                # attribution_in_part = (attribution_in_part.sum() /
-                #                        (color_available_dilated.sum() + 1e-8))
                 attribution_in_part = attribution_in_part.sum()
 
                 bg_string = "bg_" + str(i).zfill(3)
