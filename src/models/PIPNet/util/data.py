@@ -248,7 +248,7 @@ def get_transforms(args: argparse.Namespace):
     if dataset_config["augm"]:
         # transform1: first step of augmentation
         match args.dataset:
-            case "CUB-200-2011" | "CUB-10":
+            case "CUB-200-2011" | "CUB-10" | "Funny" | "Funny-10":
                 transform1 = transforms.Compose(
                     [
                         transforms.Resize(size=(img_shape[0] + 8, img_shape[1] + 8)),
@@ -277,7 +277,7 @@ def get_transforms(args: argparse.Namespace):
 
         # transform1p: alternative for transform1 during pretrain
         match args.dataset:
-            case "CUB-200-2011" | "CUB-10":
+            case "CUB-200-2011" | "CUB-10" | "Funny" | "Funny-10":
                 transform1p = transforms.Compose(
                     [
                         transforms.Resize(
