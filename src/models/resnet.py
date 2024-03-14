@@ -37,6 +37,7 @@ def conv1x1(in_planes: int, out_planes: int, stride: int = 1) -> nn.Conv2d:
 
 class BasicBlock(nn.Module):
     expansion: int = 1
+    num_layers: int = 2
 
     def __init__(
         self,
@@ -99,6 +100,7 @@ class Bottleneck(nn.Module):
     # https://ngc.nvidia.com/catalog/model-scripts/nvidia:resnet_50_v1_5_for_pytorch.
 
     expansion: int = 4
+    num_layers: int = 3
 
     def __init__(
         self,

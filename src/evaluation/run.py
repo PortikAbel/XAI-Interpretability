@@ -1,7 +1,6 @@
-import os
-import numpy as np
 import argparse
 import random
+from pathlib import Path
 
 import torch
 from captum.attr import IntegratedGradients, InputXGradient
@@ -46,18 +45,24 @@ parser.add_argument(
     help="explainer",
 )
 parser.add_argument(
-    "--checkpoint_name",
-    type=str,
-    required=False,
-    default=None,
-    help="checkpoint name (including dir)",
+    "--epoch_number",
+    type=int,
+    required=True,
+    help="Epoch number of model checkpoint to use."
 )
+parser.add_argument(
+    "--checkpoint_path",
+    type=Path,
+    required=True,
+    default=None,
+    help="path to trained model checkpoint",
+),
 
 parser.add_argument("--gpu", default=0, type=int, help="GPU id to use.")
 parser.add_argument("--seed", default=0, type=int, help="seed")
 parser.add_argument(
     "--batch_size",
-    default=32,
+    default=16,
     type=int,
     help="batch size for protocols that do not require custom BS such as accuracy",
 )
@@ -136,14 +141,8 @@ def main():
         num_classes = 50
         prototype_activation_function = "log"
         add_on_layers_type = "regular"
-        load_model_dir = args.load_model_dir
-        epoch_number_str = args.epoch_number_str
-        load_img_dir = os.path.join(load_model_dir, "img")
-        prototype_info = np.load(
-            os.path.join(
-                load_img_dir, "epoch-" + epoch_number_str, "bb" + epoch_number_str + ".npy"
-            )
-        )
+        load_model_dir = args.checkpoint_path.parent
+        epoch_number = args.epoch_number
 
         print("REMEMBER TO ADJUST PROTOPNET PATH AND EPOCH")
         model = model_ppnet.construct_PPNet(
@@ -155,16 +154,13 @@ def main():
             prototype_activation_function=prototype_activation_function,
             add_on_layers_type=add_on_layers_type,
         )
-        model = ProtoPNetModel(model, load_model_dir, epoch_number_str)
+        model = ProtoPNetModel(model, load_model_dir, epoch_number)
     else:
         print("Model not implemented")
 
-    if args.checkpoint_name:
-        model.load_state_dict(
-            torch.load(args.checkpoint_name, map_location=torch.device("cpu"))[
-                "state_dict"
-            ]
-        )
+    if args.checkpoint_path:
+        state_dict = torch.load(args.checkpoint_path, map_location=torch.device("cpu"))
+        model.load_state_dict(state_dict)
     model = model.to(device)
     model.eval()
 

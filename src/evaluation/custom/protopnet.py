@@ -1,6 +1,6 @@
 import argparse
-import os
 import random
+from pathlib import Path
 
 import cv2
 import numpy as np
@@ -39,26 +39,20 @@ def find_high_activation_crop(activation_map, percentile=95):
 
 parser = argparse.ArgumentParser(description="FunnyBirds - Attribution Evaluation")
 parser.add_argument(
-    "--data", metavar="DIR", required=True, help="path to dataset (default: imagenet)"
+    "--data", type=Path, required=True, help="path to dataset (default: imagenet)"
 )
 parser.add_argument(
-    "--load_model_dir",
-    metavar="DIR",
-    required=True,
-    help="path to dataset (default: imagenet)",
+    "--epoch_number", type=int, required=True, help="Epoch number of model checkpoint to use."
 )
 parser.add_argument(
-    "--epoch_number_str", type=str, required=True, help="GPU id to use."
-),
-parser.add_argument(
-    "--checkpoint_name",
-    type=str,
+    "--checkpoint_path",
+    type=Path,
     required=True,
     default=None,
-    help="checkpoint name (including dir)",
+    help="path to trained model checkpoint",
 ),
 parser.add_argument("--gpu", default=0, type=int, help="GPU id to use.")
-parser.add_argument("--seed", default=0, type=int, help="GPU id to use.")
+parser.add_argument("--seed", default=0, type=int, help="Random seed")
 parser.add_argument("--nr_itrs", default=250, type=int, help="number of iterations")
 
 
@@ -82,13 +76,11 @@ def main():
     num_classes = 50
     prototype_activation_function = "log"
     add_on_layers_type = "regular"
-    load_model_dir = args.load_model_dir
-    epoch_number_str = args.epoch_number_str
-    load_img_dir = os.path.join(load_model_dir, "img")
+    load_model_dir = args.checkpoint_path.parent
+    epoch_number = args.epoch_number
+    load_img_dir = Path (load_model_dir, "img")
     prototype_info = np.load(
-        os.path.join(
-            load_img_dir, "epoch-" + epoch_number_str, "bb" + epoch_number_str + ".npy"
-        )
+        load_img_dir / f"epoch-{epoch_number}" / f"bb{epoch_number}.npy"
     )
 
     print("REMEMBER TO ADJUST PROTOPNET PATH AND EPOCH")
@@ -101,9 +93,9 @@ def main():
         prototype_activation_function=prototype_activation_function,
         add_on_layers_type=add_on_layers_type,
     )
-    model = ProtoPNetModel(model, load_model_dir, epoch_number_str)
+    model = ProtoPNetModel(model, load_model_dir, epoch_number)
 
-    state_dict = torch.load(args.checkpoint_name, map_location=torch.device("cpu"))
+    state_dict = torch.load(args.checkpoint_path, map_location=torch.device("cpu"))
     model.load_state_dict(state_dict)
     model.to(device)
     model.eval()
@@ -144,10 +136,10 @@ def main():
             targets = sample["class_idx"].to(device)
 
             (
-                inference_image_masks,
-                similarity_scores,
-                class_connections,
-                prototypes,
+                _,
+                _,
+                _,
+                _,
                 bounding_box_coords,
                 prototype_idxs,
             ) = explainer.explain(images, target=targets)
@@ -160,11 +152,7 @@ def main():
                 bbox_width_end = prototype_info[prototype_idx.item()][4]
 
                 p_img_bgr = cv2.imread(
-                    os.path.join(
-                        load_img_dir,
-                        "epoch-" + str(epoch_number_str),
-                        "prototype-img-original" + str(prototype_idx.item()) + ".png",
-                    )
+                    str(load_img_dir / f"epoch-{epoch_number}" / f"prototype-img-original{prototype_idx.item()}.png")
                 )
                 image_prototype = p_img_bgr[..., ::-1]  # rgb conversion
                 image_prototype = (

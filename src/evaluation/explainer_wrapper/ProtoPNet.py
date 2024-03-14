@@ -1,5 +1,3 @@
-import os
-
 import cv2
 import matplotlib.pyplot as plt
 import numpy as np
@@ -26,7 +24,7 @@ class ProtoPNetExplainer(AbstractAttributionExplainer):
         """
         self.model = model
         self.load_model_dir = model.load_model_dir
-        self.load_img_dir = os.path.join(self.load_model_dir, "img")
+        self.load_img_dir = self.load_model_dir / "img"
         self.epoch_number_str = model.epoch_number_str
         self.start_epoch_number = int(self.epoch_number_str)
 
@@ -51,7 +49,7 @@ class ProtoPNetExplainer(AbstractAttributionExplainer):
             if np.amax(mask[:, j]) > 0.5:
                 upper_x = j
                 break
-        return lower_y, upper_y + 1, lower_x, upper_x + 1
+        return lower_y, upper_y, lower_x, upper_x
 
     # for evaluating protopnet explainations are masks
     def explain(self, image, target):
@@ -66,13 +64,14 @@ class ProtoPNetExplainer(AbstractAttributionExplainer):
             distances
         )
 
-        c = target[0]
+        target_class = target[idx]
 
-        class_prototype_indices = np.nonzero(self.model.model.prototype_class_identity.detach().cpu().numpy()[:, c])[0]
+        class_prototype_indices = np.nonzero(
+            self.model.model.prototype_class_identity
+            .detach().cpu().numpy()[:, target_class]
+        )[0]
         class_prototype_activations = prototype_activations[idx][class_prototype_indices]
-        _, sorted_indices_cls_act = torch.sort(class_prototype_activations)
-
-        prototype_cnt = 1
+        _, sorted_indices_cls_act = torch.sort(class_prototype_activations) # helyes osztályhoz tartozó prototipusok indexei aktivációs pont szerinti sorrendben (10 db)
 
         inference_image_masks = []
         prototypes = []  # these are the training set prototypes
@@ -86,24 +85,17 @@ class ProtoPNetExplainer(AbstractAttributionExplainer):
             prototype_idxs.append(prototype_index)
 
             prototype = plt.imread(
-                os.path.join(
-                    self.load_img_dir,
-                    "epoch-" + str(self.start_epoch_number),
-                    "prototype-img" + str(prototype_index.item()) + ".png",
-                )
+                self.load_img_dir /
+                f"epoch-{self.start_epoch_number}" /
+                f"prototype-img{prototype_index.item()}.png"
             )
             prototype = cv2.cvtColor(np.uint8(255 * prototype), cv2.COLOR_RGB2BGR)
-
-            h, w, c = prototype.shape
             prototype = prototype[..., ::-1]
-
             prototypes.append(prototype)
 
             activation_pattern = (
                 prototype_activation_patterns[idx][prototype_index]
-                .detach()
-                .cpu()
-                .numpy()
+                .detach().cpu().numpy()
             )
             upsampled_activation_pattern = cv2.resize(
                 activation_pattern, dsize=(H, W), interpolation=cv2.INTER_CUBIC
@@ -114,23 +106,26 @@ class ProtoPNetExplainer(AbstractAttributionExplainer):
             )
 
             mask = torch.zeros_like(image)
-            mask[
-                :,
-                :,
-                high_act_patch_indices[0] : high_act_patch_indices[1] - 1,
-                high_act_patch_indices[2] : high_act_patch_indices[3] - 1,
+            mask[:, :,
+                high_act_patch_indices[0] : high_act_patch_indices[1],
+                high_act_patch_indices[2] : high_act_patch_indices[3],
             ] = 1
 
             inference_image_masks.append(mask)
             similarity_scores.append(prototype_activations[idx][prototype_index])
             class_connections.append(
-                self.model.model.last_layer.weight[c][prototype_index]
+                self.model.model.last_layer.weight[target_class][prototype_index]
             )
             bounding_box_coords.append(high_act_patch_indices)
 
-            prototype_cnt += 1
-
-        return inference_image_masks, similarity_scores, class_connections
+        return (
+            inference_image_masks,
+            similarity_scores,
+            class_connections,
+            prototypes,
+            bounding_box_coords,
+            prototype_idxs,
+        )
 
     def get_important_parts(
         self, image, part_map, target, colors_to_part, thresholds, with_bg=False
@@ -142,7 +137,14 @@ class ProtoPNetExplainer(AbstractAttributionExplainer):
         """
         assert image.shape[0] == 1  # B = 1
         # explain
-        inference_image_masks, _, _ = self.explain(image, target)
+        (
+            inference_image_masks,
+            _,
+            _,
+            _,
+            _,
+            _,
+        ) = self.explain(image, target)
         attribution = torch.zeros_like(image)
         for inference_image_mask in inference_image_masks:
             inference_image_mask = inference_image_mask.to(image.device)
@@ -209,6 +211,9 @@ class ProtoPNetExplainer(AbstractAttributionExplainer):
             inference_image_masks,
             similarity_scores,
             class_connections,
+            _,
+            _,
+            _,
         ) = self.explain(image, target)
         attribution = torch.zeros_like(image)
         for inference_image_mask, similarity_score, class_connection in zip(
