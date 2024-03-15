@@ -24,9 +24,9 @@ class ProtoPNetExplainer(AbstractAttributionExplainer):
         """
         self.model = model
         self.load_model_dir = model.load_model_dir
-        self.load_img_dir = self.load_model_dir / "img"
-        self.epoch_number_str = model.epoch_number_str
-        self.start_epoch_number = int(self.epoch_number_str)
+        self.epoch_number = model.epoch_number
+        self.dilation = nn.MaxPool2d(1, stride=1, padding=0)
+
 
     def find_high_activation_crop(self, activation_map, percentile=95):
         threshold = np.percentile(activation_map, percentile)
@@ -73,25 +73,27 @@ class ProtoPNetExplainer(AbstractAttributionExplainer):
         class_prototype_activations = prototype_activations[idx][class_prototype_indices]
         _, sorted_indices_cls_act = torch.sort(class_prototype_activations) # helyes osztályhoz tartozó prototipusok indexei aktivációs pont szerinti sorrendben (10 db)
 
-        inference_image_masks = []
-        prototypes = []  # these are the training set prototypes
-        prototype_idxs = []  # these are the training set prototypes
-        similarity_scores = []
-        class_connections = []
-        bounding_box_coords = []
+        self.inference_image_masks = []
+        self.prototypes = []  # these are the training set prototypes
+        self.prototype_idxs = []  # these are the training set prototypes
+        self.similarity_scores = []
+        self.class_connections = []
+        self.bounding_box_coords = []
+
+        attribution = torch.zeros_like(image)
 
         for j in reversed(sorted_indices_cls_act.detach().cpu().numpy()):
             prototype_index = class_prototype_indices[j]
-            prototype_idxs.append(prototype_index)
+            self.prototype_idxs.append(prototype_index)
 
             prototype = plt.imread(
-                self.load_img_dir /
-                f"epoch-{self.start_epoch_number}" /
+                self.load_model_dir / "img" /
+                f"epoch-{self.epoch_number}" /
                 f"prototype-img{prototype_index.item()}.png"
             )
             prototype = cv2.cvtColor(np.uint8(255 * prototype), cv2.COLOR_RGB2BGR)
             prototype = prototype[..., ::-1]
-            prototypes.append(prototype)
+            self.prototypes.append(prototype)
 
             activation_pattern = (
                 prototype_activation_patterns[idx][prototype_index]
@@ -111,21 +113,18 @@ class ProtoPNetExplainer(AbstractAttributionExplainer):
                 high_act_patch_indices[2] : high_act_patch_indices[3],
             ] = 1
 
-            inference_image_masks.append(mask)
-            similarity_scores.append(prototype_activations[idx][prototype_index])
-            class_connections.append(
-                self.model.model.last_layer.weight[target_class][prototype_index]
-            )
-            bounding_box_coords.append(high_act_patch_indices)
+            inference_image_mask = mask.to(image.device)
+            similarity_score = prototype_activations[idx][prototype_index]
+            class_connection = self.model.model.last_layer.weight[target_class][prototype_index]
+            attribution += inference_image_mask * similarity_score * class_connection
 
-        return (
-            inference_image_masks,
-            similarity_scores,
-            class_connections,
-            prototypes,
-            bounding_box_coords,
-            prototype_idxs,
-        )
+            self.inference_image_masks.append(mask)
+            self.similarity_scores.append(similarity_score)
+            self.class_connections.append(class_connection)
+            self.bounding_box_coords.append(high_act_patch_indices)
+
+        return attribution
+
 
     def get_important_parts(
         self, image, part_map, target, colors_to_part, thresholds, with_bg=False
@@ -136,132 +135,31 @@ class ProtoPNetExplainer(AbstractAttributionExplainer):
         Output is of the form: ['beak', 'wing', 'tail']
         """
         assert image.shape[0] == 1  # B = 1
-        # explain
-        (
-            inference_image_masks,
-            _,
-            _,
-            _,
-            _,
-            _,
-        ) = self.explain(image, target)
+        self.explain(image, target=target)
         attribution = torch.zeros_like(image)
-        for inference_image_mask in inference_image_masks:
+        for inference_image_mask in self.inference_image_masks:
             inference_image_mask = inference_image_mask.to(image.device)
             attribution = attribution + inference_image_mask
-
         attribution = attribution.clamp(min=0.0, max=1.0)
+
+        colors_to_part = {k: "".join(filter(str.isalpha, v)) for k, v in colors_to_part.items()}
+        if with_bg:            
+            for i in range(50):  # TODO: adjust 50 if more background parts are used
+                colors_to_part[(204, 204, 204 + i)] = f"bg_{str(i).zfill(3)}"
 
         important_parts_for_thresholds = []
 
         for threshold in thresholds:
             important_parts = set ()
-            for part_color in colors_to_part.keys():
-                torch_color = torch.zeros(1, 3, 1, 1).to(image.device)
-                torch_color[0, 0, 0, 0] = part_color[0]
-                torch_color[0, 1, 0, 0] = part_color[1]
-                torch_color[0, 2, 0, 0] = part_color[2]
-                color_available = torch.all(
-                    part_map == torch_color, dim=1, keepdim=True
-                ).float()
-                attribution_in_part = attribution * color_available
-                attribution_in_part = attribution_in_part.sum()
+            for color, part_name in colors_to_part.items():
+                torch_color = torch.tensor(color).to(image.device)[None, :, None, None]
+                part_mask = torch.all(part_map == torch_color, dim=1, keepdim=True)
+                attribution_in_part = attribution * part_mask
 
-                if (
-                    attribution_in_part > threshold * color_available.sum()
-                ):  # threshold to decide how big attribution in part should be
-                    important_parts.update(
-                        "".join(filter(str.isalpha, colors_to_part[part_color]))
-                    )
+                # threshold to decide how big attribution in part should be
+                if (attribution_in_part.sum() > threshold * part_mask.sum()):  
+                    important_parts.add(part_name)
 
-            important_parts = list(important_parts)
-            important_parts_for_thresholds.append(important_parts)
-
-        if with_bg:
-            for j, threshold in enumerate(thresholds):
-                for i in range(50):  # TODO: adjust 50 if more background parts are used
-                    torch_color = torch.zeros(1, 3, 1, 1).to(image.device)
-                    torch_color[0, 0, 0, 0] = 204
-                    torch_color[0, 1, 0, 0] = 204
-                    torch_color[0, 2, 0, 0] = 204 + i
-                    color_available = torch.all(
-                        part_map == torch_color, dim=1, keepdim=True
-                    ).float()
-
-                    attribution_in_part = attribution * color_available
-                    attribution_in_part = (
-                        attribution_in_part.sum()
-                    )
-
-                    if (
-                        attribution_in_part > threshold * color_available.sum()
-                    ):  # threshold to decide how big attribution in part should be
-                        important_parts_for_thresholds[j].append(
-                            "bg_" + str(i).zfill(3)
-                        )
+            important_parts_for_thresholds.append(list(important_parts))
 
         return important_parts_for_thresholds
-
-    def get_part_importance(
-        self, image, part_map, target, colors_to_part, with_bg=False
-    ):
-        assert image.shape[0] == 1  # B = 1
-        # explain
-        (
-            inference_image_masks,
-            similarity_scores,
-            class_connections,
-            _,
-            _,
-            _,
-        ) = self.explain(image, target)
-        attribution = torch.zeros_like(image)
-        for inference_image_mask, similarity_score, class_connection in zip(
-            inference_image_masks, similarity_scores, class_connections
-        ):
-            inference_image_mask = inference_image_mask.to(image.device)
-            attribution = (
-                attribution + inference_image_mask * similarity_score * class_connection
-            )
-
-        part_importances = {}
-
-        dilation1 = nn.MaxPool2d(1, stride=1, padding=0)
-        for part_color in colors_to_part.keys():
-            torch_color = torch.zeros(1, 3, 1, 1).to(image.device)
-            torch_color[0, 0, 0, 0] = part_color[0]
-            torch_color[0, 1, 0, 0] = part_color[1]
-            torch_color[0, 2, 0, 0] = part_color[2]
-            color_available = torch.all(
-                part_map == torch_color, dim=1, keepdim=True
-            ).float()
-
-            color_available_dilated = dilation1(color_available)
-            attribution_in_part = attribution * color_available_dilated
-            attribution_in_part = attribution_in_part.sum()
-
-            part_string = colors_to_part[part_color]
-            part_string = "".join((x for x in part_string if x.isalpha()))
-            if part_string in part_importances.keys():
-                part_importances[part_string] += attribution_in_part.item()
-            else:
-                part_importances[part_string] = attribution_in_part.item()
-
-        if with_bg:
-            for i in range(50):  # TODO: adjust 50 if more background parts are used
-                torch_color = torch.zeros(1, 3, 1, 1).to(image.device)
-                torch_color[0, 0, 0, 0] = 204
-                torch_color[0, 1, 0, 0] = 204
-                torch_color[0, 2, 0, 0] = 204 + i
-                color_available = torch.all(
-                    part_map == torch_color, dim=1, keepdim=True
-                ).float()
-                color_available_dilated = dilation1(color_available)
-
-                attribution_in_part = attribution * color_available_dilated
-                attribution_in_part = attribution_in_part.sum()
-
-                bg_string = "bg_" + str(i).zfill(3)
-                part_importances[bg_string] = attribution_in_part.item()
-
-        return part_importances

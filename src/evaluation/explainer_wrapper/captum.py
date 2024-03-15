@@ -7,7 +7,7 @@ class CaptumAttributionExplainer(AbstractAttributionExplainer):
     Args:
         explainer: Captum explanation method
     """
-    def explain(self, input, target=None, baseline=None):
+    def explain(self, input, target=None):
         if self.explainer_name == 'InputXGradient': 
             return self.explainer.attribute(input, target=target)
         elif self.explainer_name == 'IntegratedGradients':

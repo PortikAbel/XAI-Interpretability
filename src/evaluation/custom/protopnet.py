@@ -135,17 +135,10 @@ def main():
 
             targets = sample["class_idx"].to(device)
 
-            (
-                _,
-                _,
-                _,
-                _,
-                bounding_box_coords,
-                prototype_idxs,
-            ) = explainer.explain(images, target=targets)
+            explainer.explain(images, target=targets)
 
             for i in range(0, 10):
-                prototype_idx = prototype_idxs[i]
+                prototype_idx = explainer.prototype_idxs[i]
                 bbox_height_start = prototype_info[prototype_idx.item()][1]
                 bbox_height_end = prototype_info[prototype_idx.item()][2]
                 bbox_width_start = prototype_info[prototype_idx.item()][3]
@@ -222,7 +215,7 @@ def main():
                 # find parts in test image of prototype
 
                 # show the most highly activated patch of the image by this prototype
-                high_act_patch_indices = bounding_box_coords[i]
+                high_act_patch_indices = explainer.bounding_box_coords[i]
 
                 part_rectangle = part_map_test[
                     0,
