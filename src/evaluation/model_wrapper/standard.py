@@ -1,5 +1,6 @@
 from evaluation.model_wrapper.base import AbstractModel
 
+
 class StandardModel(AbstractModel):
     """
     A wrapper for standard PyTorch models (e.g. ResNet, VGG, AlexNet, ...).

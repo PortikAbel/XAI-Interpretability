@@ -22,7 +22,6 @@ class AbstractExplainer:
 
 
 class AbstractAttributionExplainer(AbstractExplainer):
-
     def get_important_parts(
         self, image, part_map, target, colors_to_part, thresholds, with_bg=False
     ):

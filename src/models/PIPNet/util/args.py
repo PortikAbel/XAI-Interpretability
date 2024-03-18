@@ -308,7 +308,7 @@ def get_args() -> argparse.Namespace:
         help="Num workers in dataloaders.",
     )
 
-    args = parser.parse_args()
+    args, _ = parser.parse_known_args()
 
     if args.image_height is None and args.image_width is None:
         parser.error("Both image_height and image_width cannot be None")

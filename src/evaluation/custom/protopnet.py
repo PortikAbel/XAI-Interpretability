@@ -42,7 +42,10 @@ parser.add_argument(
     "--data", type=Path, required=True, help="path to dataset (default: imagenet)"
 )
 parser.add_argument(
-    "--epoch_number", type=int, required=True, help="Epoch number of model checkpoint to use."
+    "--epoch_number",
+    type=int,
+    required=True,
+    help="Epoch number of model checkpoint to use.",
 )
 parser.add_argument(
     "--checkpoint_path",
@@ -78,7 +81,7 @@ def main():
     add_on_layers_type = "regular"
     load_model_dir = args.checkpoint_path.parent
     epoch_number = args.epoch_number
-    load_img_dir = Path (load_model_dir, "img")
+    load_img_dir = Path(load_model_dir, "img")
     prototype_info = np.load(
         load_img_dir / f"epoch-{epoch_number}" / f"bb{epoch_number}.npy"
     )
@@ -145,7 +148,11 @@ def main():
                 bbox_width_end = prototype_info[prototype_idx.item()][4]
 
                 p_img_bgr = cv2.imread(
-                    str(load_img_dir / f"epoch-{epoch_number}" / f"prototype-img-original{prototype_idx.item()}.png")
+                    str(
+                        load_img_dir
+                        / f"epoch-{epoch_number}"
+                        / f"prototype-img-original{prototype_idx.item()}.png"
+                    )
                 )
                 image_prototype = p_img_bgr[..., ::-1]  # rgb conversion
                 image_prototype = (

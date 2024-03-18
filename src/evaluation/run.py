@@ -5,10 +5,13 @@ from pathlib import Path
 import torch
 from captum.attr import IntegratedGradients, InputXGradient
 
+from models.PIPNet.util.args import get_args as get_pipnet_args
 from models.resnet import resnet50
 from models.vgg import vgg16
 import models.ProtoPNet.model as model_ppnet
+import models.PIPNet.pipnet as model_pipnet
 from evaluation.model_wrapper.ProtoPNet import ProtoPNetModel
+from evaluation.model_wrapper.PIPNet import PipNetModel
 from evaluation.model_wrapper.standard import StandardModel
 from evaluation.protocols import (
     accuracy_protocol,
@@ -22,6 +25,7 @@ from evaluation.protocols import (
 )
 from evaluation.explainer_wrapper.captum import CaptumAttributionExplainer
 from evaluation.explainer_wrapper.ProtoPNet import ProtoPNetExplainer
+from evaluation.explainer_wrapper.PIPNet import PIPNetExplainer
 
 
 parser = argparse.ArgumentParser(description="FunnyBirds - Explanation Evaluation")
@@ -31,7 +35,7 @@ parser.add_argument(
 parser.add_argument(
     "--model",
     required=True,
-    choices=["resnet50", "vgg16", "vit_b_16", "ProtoPNet"],
+    choices=["resnet50", "vgg16", "vit_b_16", "ProtoPNet", "PIPNet"],
     help="model architecture",
 )
 parser.add_argument(
@@ -41,19 +45,20 @@ parser.add_argument(
         "IntegratedGradients",
         "InputXGradient",
         "ProtoPNet",
+        "PIPNet",
     ],
     help="explainer",
 )
 parser.add_argument(
     "--epoch_number",
     type=int,
-    required=True,
-    help="Epoch number of model checkpoint to use."
+    required=False,
+    help="Epoch number of model checkpoint to use.",
 )
 parser.add_argument(
     "--checkpoint_path",
     type=Path,
-    required=True,
+    required=False,
     default=None,
     help="path to trained model checkpoint",
 ),
@@ -121,7 +126,7 @@ parser.add_argument(
 
 
 def main():
-    args = parser.parse_args()
+    args, _ = parser.parse_known_args()
     device = "cuda:" + str(args.gpu)
 
     random.seed(args.seed)
@@ -155,6 +160,28 @@ def main():
             add_on_layers_type=add_on_layers_type,
         )
         model = ProtoPNetModel(model, load_model_dir, epoch_number)
+    elif args.model == "PIPNet":
+        num_classes = 50
+        pipnet_args = get_pipnet_args()
+        (
+            feature_net,
+            add_on_layers,
+            pool_layer,
+            classification_layer,
+            num_prototypes,
+        ) = model_pipnet.get_network(num_classes, pipnet_args)
+
+        # Create a PIP-Net
+        model = model_pipnet.PIPNet(
+            num_classes=num_classes,
+            num_prototypes=num_prototypes,
+            feature_net=feature_net,
+            args=pipnet_args,
+            add_on_layers=add_on_layers,
+            pool_layer=pool_layer,
+            classification_layer=classification_layer,
+        )
+        model = PipNetModel(model)
     else:
         print("Model not implemented")
 
@@ -174,6 +201,8 @@ def main():
         explainer = CaptumAttributionExplainer(explainer, baseline=baseline)
     elif args.explainer == "ProtoPNet":
         explainer = ProtoPNetExplainer(model)
+    elif args.explainer == "PIPNet":
+        explainer = PIPNetExplainer(model)
     else:
         print("Explainer not implemented")
 

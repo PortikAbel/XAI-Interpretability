@@ -1,5 +1,4 @@
 import cv2
-import matplotlib.pyplot as plt
 import numpy as np
 import torch
 import torch.nn as nn
@@ -9,22 +8,20 @@ from evaluation.explainer_wrapper.base import AbstractAttributionExplainer
 
 # this should in the end be the final explainer
 # this explainer can also be used for the visualizations to clean up the code a bit
-class ProtoPNetExplainer(AbstractAttributionExplainer):
+class PIPNetExplainer(AbstractAttributionExplainer):
     """
-    A wrapper for ProtoPNet.
+    A wrapper for PIPNet.
     Args:
         model: PyTorch model.
     """
 
     def __init__(self, model):
         """
-        A wrapper for ProtoPNet explanations.
+        A wrapper for PIPNet explanations.
         Args:
             model: PyTorch neural network model
         """
         self.model = model
-        self.load_model_dir = model.load_model_dir
-        self.epoch_number = model.epoch_number
         self.dilation = nn.MaxPool2d(1, stride=1, padding=0)
 
     def find_high_activation_crop(self, activation_map, percentile=95):
@@ -50,59 +47,35 @@ class ProtoPNetExplainer(AbstractAttributionExplainer):
                 break
         return lower_y, upper_y, lower_x, upper_x
 
-    # for evaluating protopnet explainations are masks
+    # for evaluating pipnet explainations are masks
     def explain(self, image, target):
         B, C, H, W = image.shape
-
         idx = 0
 
-        logits, min_distances = self.model(image, return_min_distances=True)
-        conv_output, distances = self.model.model.push_forward(image)
-        prototype_activations = self.model.model.distance_2_similarity(min_distances)
-        prototype_activation_patterns = self.model.model.distance_2_similarity(
-            distances
-        )
-
+        proto_features, pooled, _out = self.model(image, return_partial_outputs=True)
         target_class = target[idx]
 
-        class_prototype_indices = np.nonzero(
-            self.model.model.prototype_class_identity.detach()
-            .cpu()
-            .numpy()[:, target_class]
-        )[0]
-        class_prototype_activations = prototype_activations[idx][
-            class_prototype_indices
+        sim_weights = (
+            pooled[idx, :] * self.model.model._classification.weight[target_class, :]
+        )
+        _, sorted_proto_indices = torch.sort(sim_weights)
+        sorted_proto_indices = sorted_proto_indices[
+            sim_weights[sorted_proto_indices] > 0.1
         ]
-        _, sorted_indices_cls_act = torch.sort(class_prototype_activations)
 
         self.inference_image_masks = []
-        self.prototypes = []  # these are the training set prototypes
-        self.prototype_idxs = []  # these are the training set prototypes
         self.similarity_scores = []
         self.class_connections = []
         self.bounding_box_coords = []
+        self.prototype_idxs = []
 
         attribution = torch.zeros_like(image)
 
-        for j in reversed(sorted_indices_cls_act.detach().cpu().numpy()):
-            prototype_index = class_prototype_indices[j]
+        for prototype_index in reversed(sorted_proto_indices.detach().cpu().numpy()):
             self.prototype_idxs.append(prototype_index)
 
-            prototype = plt.imread(
-                self.load_model_dir
-                / "img"
-                / f"epoch-{self.epoch_number}"
-                / f"prototype-img{prototype_index.item()}.png"
-            )
-            prototype = cv2.cvtColor(np.uint8(255 * prototype), cv2.COLOR_RGB2BGR)
-            prototype = prototype[..., ::-1]
-            self.prototypes.append(prototype)
-
             activation_pattern = (
-                prototype_activation_patterns[idx][prototype_index]
-                .detach()
-                .cpu()
-                .numpy()
+                proto_features[idx][prototype_index].detach().cpu().numpy()
             )
             upsampled_activation_pattern = cv2.resize(
                 activation_pattern, dsize=(H, W), interpolation=cv2.INTER_CUBIC
@@ -121,8 +94,8 @@ class ProtoPNetExplainer(AbstractAttributionExplainer):
             ] = 1
 
             inference_image_mask = mask.to(image.device)
-            similarity_score = prototype_activations[idx][prototype_index]
-            class_connection = self.model.model.last_layer.weight[target_class][
+            similarity_score = pooled[idx][prototype_index]
+            class_connection = self.model.model._classification.weight[target_class][
                 prototype_index
             ]
             attribution += inference_image_mask * similarity_score * class_connection
