@@ -232,14 +232,14 @@ def get_transforms(args: argparse.Namespace):
 
     mean = dataset_config["mean"]
     std = dataset_config["std"]
-    img_shape = dataset_config["img_shape"]
+    img_shape = tuple(args.image_size)
 
     normalize = transforms.Normalize(mean=mean, std=std)
 
     transform_no_augment = transforms.Compose(
         [
             transforms.Resize(size=img_shape),
-            transforms.ToImageTensor(),
+            transforms.ToImage(),
             transforms.ConvertImageDtype(),
             normalize,
         ]
@@ -248,7 +248,7 @@ def get_transforms(args: argparse.Namespace):
     if dataset_config["augm"]:
         # transform1: first step of augmentation
         match args.dataset:
-            case "CUB-200-2011" | "CUB-10":
+            case "CUB-200-2011" | "CUB-10" | "Funny" | "Funny-10":
                 transform1 = transforms.Compose(
                     [
                         transforms.Resize(size=(img_shape[0] + 8, img_shape[1] + 8)),
@@ -277,7 +277,7 @@ def get_transforms(args: argparse.Namespace):
 
         # transform1p: alternative for transform1 during pretrain
         match args.dataset:
-            case "CUB-200-2011" | "CUB-10":
+            case "CUB-200-2011" | "CUB-10" | "Funny" | "Funny-10":
                 transform1p = transforms.Compose(
                     [
                         transforms.Resize(
@@ -293,7 +293,7 @@ def get_transforms(args: argparse.Namespace):
                     ]
                 )
             case _:
-                transform1p = None
+                transform1p = transform_no_augment
 
         # transform2: second step of augmentation
         # applied twice on the result of transform1(p) to obtain two similar imgs
@@ -301,14 +301,14 @@ def get_transforms(args: argparse.Namespace):
             [
                 TrivialAugmentWideNoShape(),
                 transforms.RandomCrop(size=img_shape),  # includes crop
-                transforms.ToImageTensor(),
+                transforms.ToImage(),
                 transforms.ConvertImageDtype(),
                 normalize,
             ]
         )
     else:
         transform1 = transform_no_augment
-        transform1p = None
+        transform1p = transform_no_augment
         transform2 = transform_no_augment
 
     return (
