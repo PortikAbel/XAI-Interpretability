@@ -1,12 +1,19 @@
 import argparse
 import random
+from pathlib import Path
 
 import torch
 from captum.attr import IntegratedGradients, InputXGradient
 
+from data.config import dataset_config
+from models.PIPNet.util.args import get_args as get_pipnet_args
 from models.resnet import resnet50
 from models.vgg import vgg16
-from evaluation.model_wrapper import StandardModel
+import models.ProtoPNet.model as model_ppnet
+import models.PIPNet.pipnet as model_pipnet
+from evaluation.model_wrapper.ProtoPNet import ProtoPNetModel
+from evaluation.model_wrapper.PIPNet import PipNetModel
+from evaluation.model_wrapper.standard import StandardModel
 from evaluation.protocols import (
     accuracy_protocol,
     controlled_synthetic_data_check_protocol,
@@ -17,11 +24,9 @@ from evaluation.protocols import (
     distractibility_protocol,
     background_independence_protocol,
 )
-from evaluation.explainer_wrapper import (
-    CaptumAttributionExplainer,
-    ViTRolloutExplainer,
-    ViTCheferLRPExplainer,
-)
+from evaluation.explainer_wrapper.captum import CaptumAttributionExplainer
+from evaluation.explainer_wrapper.ProtoPNet import ProtoPNetExplainer
+from evaluation.explainer_wrapper.PIPNet import PIPNetExplainer
 
 
 parser = argparse.ArgumentParser(description="FunnyBirds - Explanation Evaluation")
@@ -31,7 +36,7 @@ parser.add_argument(
 parser.add_argument(
     "--model",
     required=True,
-    choices=["resnet50", "vgg16", "vit_b_16"],
+    choices=["resnet50", "vgg16", "vit_b_16", "ProtoPNet", "PIPNet"],
     help="model architecture",
 )
 parser.add_argument(
@@ -40,25 +45,30 @@ parser.add_argument(
     choices=[
         "IntegratedGradients",
         "InputXGradient",
-        "Rollout",
-        "CheferLRP",
-        "CustomExplainer",
+        "ProtoPNet",
+        "PIPNet",
     ],
     help="explainer",
 )
 parser.add_argument(
-    "--checkpoint_name",
-    type=str,
+    "--epoch_number",
+    type=int,
+    required=False,
+    help="Epoch number of model checkpoint to use.",
+)
+parser.add_argument(
+    "--checkpoint_path",
+    type=Path,
     required=False,
     default=None,
-    help="checkpoint name (including dir)",
-)
+    help="path to trained model checkpoint",
+),
 
 parser.add_argument("--gpu", default=0, type=int, help="GPU id to use.")
 parser.add_argument("--seed", default=0, type=int, help="seed")
 parser.add_argument(
     "--batch_size",
-    default=32,
+    default=16,
     type=int,
     help="batch size for protocols that do not require custom BS such as accuracy",
 )
@@ -117,7 +127,7 @@ parser.add_argument(
 
 
 def main():
-    args = parser.parse_args()
+    args, _ = parser.parse_known_args()
     device = "cuda:" + str(args.gpu)
 
     random.seed(args.seed)
@@ -130,15 +140,55 @@ def main():
     elif args.model == "vgg16":
         model = vgg16(num_classes=50)
         model = StandardModel(model)
+    elif args.model == "ProtoPNet":
+        base_architecture = "resnet50"
+        img_size = 256
+        prototype_shape = (50 * 10, 128, 1, 1)
+        num_classes = dataset_config["ProtoPNet"]["num_classes"]
+        prototype_activation_function = "log"
+        add_on_layers_type = "regular"
+        load_model_dir = args.checkpoint_path.parent
+        epoch_number = args.epoch_number
+
+        print("REMEMBER TO ADJUST PROTOPNET PATH AND EPOCH")
+        model = model_ppnet.construct_PPNet(
+            base_architecture=base_architecture,
+            pretrained=True,
+            img_size=img_size,
+            prototype_shape=prototype_shape,
+            num_classes=num_classes,
+            prototype_activation_function=prototype_activation_function,
+            add_on_layers_type=add_on_layers_type,
+        )
+        model = ProtoPNetModel(model, load_model_dir, epoch_number)
+    elif args.model == "PIPNet":
+        num_classes = dataset_config["PIPNet"]["num_classes"]
+        pipnet_args = get_pipnet_args()
+        (
+            feature_net,
+            add_on_layers,
+            pool_layer,
+            classification_layer,
+            num_prototypes,
+        ) = model_pipnet.get_network(num_classes, pipnet_args)
+
+        # Create a PIP-Net
+        model = model_pipnet.PIPNet(
+            num_classes=num_classes,
+            num_prototypes=num_prototypes,
+            feature_net=feature_net,
+            args=pipnet_args,
+            add_on_layers=add_on_layers,
+            pool_layer=pool_layer,
+            classification_layer=classification_layer,
+        )
+        model = PipNetModel(model)
     else:
         print("Model not implemented")
 
-    if args.checkpoint_name:
-        model.load_state_dict(
-            torch.load(args.checkpoint_name, map_location=torch.device("cpu"))[
-                "state_dict"
-            ]
-        )
+    if args.checkpoint_path:
+        state_dict = torch.load(args.checkpoint_path, map_location=torch.device("cpu"))
+        model.load_state_dict(state_dict)
     model = model.to(device)
     model.eval()
 
@@ -150,12 +200,10 @@ def main():
         explainer = IntegratedGradients(model)
         baseline = torch.zeros((1, 3, 256, 256)).to(device)
         explainer = CaptumAttributionExplainer(explainer, baseline=baseline)
-    elif args.explainer == "Rollout":
-        explainer = ViTRolloutExplainer(model)
-    elif args.explainer == "CheferLRP":
-        explainer = ViTCheferLRPExplainer(model)
-    elif args.explainer == "CustomExplainer":
-        ...
+    elif args.explainer == "ProtoPNet":
+        explainer = ProtoPNetExplainer(model)
+    elif args.explainer == "PIPNet":
+        explainer = PIPNetExplainer(model)
     else:
         print("Explainer not implemented")
 

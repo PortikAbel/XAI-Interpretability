@@ -8,7 +8,7 @@ from models.features import vgg_features
 class VGG(nn.Module):
     def __init__(
         self,
-        features: vgg_features.VGGFeatures,
+        features: vgg_features.VGG_features,
         num_classes: int = 1000,
         init_weights: bool = True,
         dropout: float = 0.5,
