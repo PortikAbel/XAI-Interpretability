@@ -5,6 +5,7 @@ from pathlib import Path
 import torch
 from captum.attr import IntegratedGradients, InputXGradient
 
+from data.config import dataset_config
 from models.PIPNet.util.args import get_args as get_pipnet_args
 from models.resnet import resnet50
 from models.vgg import vgg16
@@ -143,7 +144,7 @@ def main():
         base_architecture = "resnet50"
         img_size = 256
         prototype_shape = (50 * 10, 128, 1, 1)
-        num_classes = 50
+        num_classes = dataset_config["ProtoPNet"]["num_classes"]
         prototype_activation_function = "log"
         add_on_layers_type = "regular"
         load_model_dir = args.checkpoint_path.parent
@@ -161,7 +162,7 @@ def main():
         )
         model = ProtoPNetModel(model, load_model_dir, epoch_number)
     elif args.model == "PIPNet":
-        num_classes = 50
+        num_classes = dataset_config["PIPNet"]["num_classes"]
         pipnet_args = get_pipnet_args()
         (
             feature_net,
