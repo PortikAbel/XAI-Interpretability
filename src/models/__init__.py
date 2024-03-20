@@ -1,7 +1,5 @@
-import os
 from pathlib import Path
-from dotenv import find_dotenv, load_dotenv
+from utils.environment import get_env
 
 
-load_dotenv(find_dotenv())
-pretrained_models_dir = Path(os.getenv("PROJECT_ROOT")) / "models" / "pretrained"
+pretrained_models_dir = Path(get_env("PROJECT_ROOT")) / "pretrained"
