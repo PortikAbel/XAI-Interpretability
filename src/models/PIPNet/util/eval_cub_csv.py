@@ -98,10 +98,10 @@ def eval_prototypes_cub_parts_csv(
                 w_min_224 = w_min_224 + correction // 2.0
                 w_max_224 = w_max_224 - correction // 2.0
 
-            orig_img_location_h_min = (img_orig_height / args.image_size[0]) * h_min_224
-            orig_img_location_h_max = (img_orig_height / args.image_size[0]) * h_max_224
-            orig_img_location_w_min = (img_orig_width / args.image_size[1]) * w_min_224
-            orig_img_location_w_max = (img_orig_width / args.image_size[1]) * w_max_224
+            orig_img_location_h_min = (img_orig_height / args.image_shape[0]) * h_min_224
+            orig_img_location_h_max = (img_orig_height / args.image_shape[0]) * h_max_224
+            orig_img_location_w_min = (img_orig_width / args.image_shape[1]) * w_min_224
+            orig_img_location_w_max = (img_orig_width / args.image_shape[1]) * w_max_224
 
             part_dict_img = img_to_part_xy_vis[img_id]
             for part in part_dict_img.keys():
@@ -312,7 +312,7 @@ def get_proto_patches_cub(net, projectloader, epoch, device, args, log, threshol
                                 w_coor_min,
                                 w_coor_max,
                             ) = get_img_coordinates(
-                                args.image_size,
+                                args.image_shape,
                                 pfs.shape,
                                 patchsize,
                                 skip,
@@ -426,7 +426,7 @@ def get_topk_cub(net, projectloader, k, epoch, device, args, log):
                         w_coor_min,
                         w_coor_max,
                     ) = get_img_coordinates(
-                        args.image_size,
+                        args.image_shape,
                         pfs.shape,
                         patchsize,
                         skip,

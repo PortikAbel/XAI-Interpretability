@@ -232,7 +232,7 @@ def get_transforms(args: argparse.Namespace):
 
     mean = dataset_config["mean"]
     std = dataset_config["std"]
-    img_shape = tuple(args.image_size)
+    img_shape = tuple(args.image_shape)
 
     normalize = transforms.Normalize(mean=mean, std=std)
 

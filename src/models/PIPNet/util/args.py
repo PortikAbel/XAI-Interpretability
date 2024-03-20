@@ -308,7 +308,7 @@ def get_args() -> argparse.Namespace:
     args.image_height = args.image_height or args.image_width
     args.image_width = args.image_width or args.image_height
 
-    args.image_size = np.array((args.image_height, args.image_width))
+    args.image_shape = np.array((args.image_height, args.image_width))
 
     args.log_dir = Path(os.getenv("PROJECT_ROOT")) / "runs" / "PIPNet" / args.log_dir
     args.log_dir = args.log_dir.resolve()

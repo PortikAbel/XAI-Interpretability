@@ -63,7 +63,7 @@ def __visualize_predictions(
     normalize = transforms.Normalize(mean=mean, std=std)
     transform_no_augment = transforms.Compose(
         [
-            transforms.Resize(size=tuple(args.image_size)),
+            transforms.Resize(size=tuple(args.image_shape)),
             transforms.ToTensor(),
             normalize,
         ]
@@ -138,7 +138,7 @@ def __visualize_predictions(
                         max_w, max_idx_w = torch.max(max_h, dim=0)
                         max_idx_h = max_idx_h[max_idx_w].item()
                         max_idx_w = max_idx_w.item()
-                        image = transforms.Resize(size=tuple(args.image_size))(
+                        image = transforms.Resize(size=tuple(args.image_shape))(
                             Image.open(img).convert("RGB")
                         )
                         img_tensor = transforms.ToTensor()(image).unsqueeze_(
@@ -150,7 +150,7 @@ def __visualize_predictions(
                             w_coor_min,
                             w_coor_max,
                         ) = get_img_coordinates(
-                            args.image_size,
+                            args.image_shape,
                             softmaxes.shape,
                             patch_size,
                             skip,
@@ -177,11 +177,11 @@ def __visualize_predictions(
                                 (max_idx_w * skip[1], max_idx_h * skip[0]),
                                 (
                                     min(
-                                        args.image_size[1],
+                                        args.image_shape[1],
                                         max_idx_w * skip[1] + patch_size,
                                     ),
                                     min(
-                                        args.image_size[0],
+                                        args.image_shape[0],
                                         max_idx_h * skip[1] + patch_size,
                                     ),
                                 ),
@@ -197,7 +197,7 @@ def __visualize_predictions(
                                 softmaxes[0, prototype_idx, :, :]
                             )
                             softmaxes_resized = softmaxes_resized.resize(
-                                tuple(args.image_size),
+                                tuple(args.image_shape),
                                 Image.BICUBIC,
                             )
                             softmaxes_np = (
