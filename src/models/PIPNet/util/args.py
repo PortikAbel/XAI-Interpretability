@@ -310,6 +310,9 @@ def get_args() -> argparse.Namespace:
 
     args.image_shape = np.array((args.image_height, args.image_width))
 
+    if not args.tanh_loss and not args.unif_loss and not args.variance_loss:
+        args.tanh_loss = True
+
     args.log_dir = Path(os.getenv("PROJECT_ROOT")) / "runs" / "PIPNet" / args.log_dir
     args.log_dir = args.log_dir.resolve()
     args.log_dir.mkdir(parents=True, exist_ok=True)
