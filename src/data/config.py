@@ -108,4 +108,4 @@ test_batch_size = 32
 train_push_batch_size = 32
 
 # change here to read the config for the data set you want to work with:
-dataset_config = DATASETS["CUB-10"]
+dataset_config = DATASETS["Funny"]

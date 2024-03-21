@@ -3,6 +3,7 @@ import random
 from pathlib import Path
 
 import torch
+import torch.nn as nn
 from captum.attr import IntegratedGradients, InputXGradient
 
 from data.config import dataset_config
@@ -144,7 +145,7 @@ def main():
         base_architecture = "resnet50"
         img_size = 256
         prototype_shape = (50 * 10, 128, 1, 1)
-        num_classes = dataset_config["ProtoPNet"]["num_classes"]
+        num_classes = dataset_config["num_classes"]
         prototype_activation_function = "log"
         add_on_layers_type = "regular"
         load_model_dir = args.checkpoint_path.parent
@@ -162,7 +163,7 @@ def main():
         )
         model = ProtoPNetModel(model, load_model_dir, epoch_number)
     elif args.model == "PIPNet":
-        num_classes = dataset_config["PIPNet"]["num_classes"]
+        num_classes = dataset_config["num_classes"]
         pipnet_args = get_pipnet_args()
         (
             feature_net,
@@ -182,13 +183,14 @@ def main():
             pool_layer=pool_layer,
             classification_layer=classification_layer,
         )
+        model = nn.DataParallel(model, device_ids=list(map(int, pipnet_args.gpu_ids)))
         model = PipNetModel(model)
     else:
         print("Model not implemented")
 
     if args.checkpoint_path:
         state_dict = torch.load(args.checkpoint_path, map_location=torch.device("cpu"))
-        model.load_state_dict(state_dict)
+        model.load_state_dict(state_dict["model_state_dict"])
     model = model.to(device)
     model.eval()
 
