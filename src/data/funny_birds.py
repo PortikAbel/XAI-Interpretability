@@ -1,15 +1,14 @@
 import io
 import itertools
 import json
-import os
 import random
 from base64 import decodebytes
 
 import requests
 import torch
 from PIL import Image, ImageDraw
-from torch.utils.data import Dataset
-from torchvision import transforms
+from pathlib import Path
+from torchvision import transforms, datasets
 
 
 class RandomForeground(torch.nn.Module):
@@ -60,16 +59,17 @@ class RandomForeground(torch.nn.Module):
         return f"{self.__class__.__name__}(p={self.p})"
 
 
-class FunnyBirds(Dataset):
+class FunnyBirds(datasets.ImageFolder):
     """FunnyBirds dataset."""
 
-    def __init__(self, root_dir, mode, get_part_map=False, transform=None):
+    def __init__(self, root_dir, mode, get_part_map: bool = False, transform =None):
         """
         Args:
             root_dir (string): Directory with all the images. E.g. ./datasets/FunnyBirds
             transform (callable, optional): Optional transform to be applied
                 on a sample.
         """
+        super().__init__(root_dir / mode, transform)
         self.root_dir = root_dir
         self.mode = mode
         self.get_part_map = get_part_map
@@ -77,16 +77,14 @@ class FunnyBirds(Dataset):
         if transform is not None:
             print("transforms only support image alternations")
 
-        path_dataset_json = os.path.join(
-            self.root_dir, "dataset_" + self.mode + ".json"
-        )
+        path_dataset_json = self.root_dir / f"dataset_{self.mode}.json"
         with open(path_dataset_json, "r") as openfile:
             self.params = json.load(openfile)
 
-        with open(os.path.join(self.root_dir, "classes.json")) as f:
+        with open(self.root_dir / "classes.json") as f:
             self.classes = json.load(f)
 
-        with open(os.path.join(self.root_dir, "parts.json")) as f:
+        with open(self.root_dir / "parts.json") as f:
             self.parts = json.load(f)
 
         # this is the decoding from part_map to part
@@ -106,38 +104,37 @@ class FunnyBirds(Dataset):
         return len(self.params)
 
     def __getitem__(self, idx):
-        class_idx = self.params[idx]["class_idx"]
-
-        img_path = os.path.join(
-            self.root_dir, self.mode, str(class_idx), str(idx).zfill(6) + ".png"
-        )
-        image = Image.open(img_path)
-
-        image = transforms.ToTensor()(image)[:-1, :, :]  # remove alpha
+        img_path, target = self.samples[idx]
+        image = self.loader(img_path)
+        image = transforms.ToTensor()(image)
         if self.transform is not None:
             image = self.transform(image)
+        img_path = Path(img_path)
+        image_idx = int(img_path.stem)
+        class_name = self.params[image_idx]["class_idx"]
 
-        params = self.params[idx]
+        params = self.params[image_idx]
 
         if self.get_part_map:
-            part_map_path = os.path.join(
-                self.root_dir,
-                self.mode + "_part_map",
-                str(class_idx),
-                str(idx).zfill(6) + ".png",
+            part_map_path = (
+                self.root_dir /
+                f"{self.mode}_part_map" /
+                f"{class_name}" /
+                f"{image_idx:06}.png"
             )
-            part_map = Image.open(part_map_path)
-            part_map = transforms.ToTensor()(part_map)[:-1, :, :]  # remove alpha
+            part_map = self.loader(part_map_path)
+            part_map = transforms.ToTensor()(part_map)
             part_map = part_map * 255.0
         else:
             part_map = 0
 
         sample = {
             "image": image,
+            "target": target,
+            "class_name": class_name,
             "params": params,
-            "class_idx": class_idx,
             "part_map": part_map,
-            "image_idx": idx,
+            "image_idx": image_idx,
         }
 
         return sample
@@ -330,46 +327,40 @@ class FunnyBirds(Dataset):
         parts = list(self.parts.keys())
 
         keep_parts = list(set(parts) - set(parts_removed))
-        image_name = "body_" + "_".join(sorted(keep_parts)) + ".png"
-        path = os.path.join(
-            self.root_dir,
-            self.mode + "_interventions",
-            str(class_idx),
-            str(image_idx).zfill(6),
-            image_name,
+        path = (
+            self.root_dir /
+            f"{self.mode}_interventions" /
+            f"{class_idx}" /
+            f"{image_idx:06}" /
+            f"body_{'_'.join(sorted(keep_parts))}.png"
         )
 
-        sample = {}
-
         image = Image.open(path)
-
         image = transforms.ToTensor()(image)[:-1, :, :]  # remove alpha
         if self.transform is not None:
             image = self.transform(image)
 
+        sample = {}
         sample["image"] = image.unsqueeze(0)
 
         return sample
 
     def get_background_intervention(self, class_idx, image_idx, bg_object_id):
-        image_name = str(bg_object_id) + ".png"
-        path = os.path.join(
-            self.root_dir,
-            self.mode + "_interventions",
-            str(class_idx),
-            str(image_idx).zfill(6),
-            "background_interventions",
-            image_name,
+        path = (
+            self.root_dir /
+            f"{self.mode}_interventions" /
+            f"{class_idx}" /
+            f"{image_idx:06}" /
+            "background_interventions" /
+            f"{bg_object_id}.png"
         )
 
-        sample = {}
-
         image = Image.open(path)
-
         image = transforms.ToTensor()(image)[:-1, :, :]  # remove alpha
         if self.transform is not None:
             image = self.transform(image)
 
+        sample = {}
         sample["image"] = image.unsqueeze(0)
 
         return sample

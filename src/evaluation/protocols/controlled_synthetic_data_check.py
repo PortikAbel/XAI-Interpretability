@@ -18,7 +18,7 @@ def controlled_synthetic_data_check_protocol(model, explainer, args):
     number_valid_samples = 0
     for samples in tqdm(test_loader):
         images = samples["image"]
-        target = samples["class_idx"]
+        target = samples["target"]
         part_maps = samples["part_map"]
         if args.gpu is not None:
             images = images.cuda(args.gpu, non_blocking=True)

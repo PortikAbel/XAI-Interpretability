@@ -22,11 +22,11 @@ def distractibility_protocol(model, explainer, args):
     number_valid_samples = 0
     for sample in tqdm(test_loader):
         image = sample["image"]
-        target = sample["class_idx"]
+        target = sample["target"]
         part_map = sample["part_map"]
         params = sample["params"]
-        class_idxs = sample["class_idx"]
-        image_idxs = sample["image_idx"]
+        class_name = sample["class_name"].item()
+        image_idx = sample["image_idx"].item()
         params = test_dataset.get_params_for_single(params)
         if args.gpu is not None:
             image = image.cuda(args.gpu, non_blocking=True)
@@ -41,11 +41,7 @@ def distractibility_protocol(model, explainer, args):
         bird_parts_keys = list(test_dataset.parts.keys())
 
         for remove_part in bird_parts_keys:
-            image2 = test_dataset.get_intervention(
-                class_idxs.squeeze(0).item(),
-                image_idxs.squeeze(0).item(),
-                [remove_part],
-            )["image"]
+            image2 = test_dataset.get_intervention(class_name, image_idx, [remove_part])["image"]
 
             image2 = image2.cuda(args.gpu, non_blocking=True)
             output = model(image2)
@@ -58,9 +54,7 @@ def distractibility_protocol(model, explainer, args):
         bg_object_ids = [int(s) for s in re.findall(r"\b\d+\b", params[bg_keys[0]])]
 
         for i in range(len(bg_object_ids)):
-            image2 = test_dataset.get_background_intervention(
-                class_idxs.squeeze(0).item(), image_idxs.squeeze(0).item(), i
-            )["image"]
+            image2 = test_dataset.get_background_intervention(class_name, image_idx, i)["image"]
 
             image2 = image2.cuda(args.gpu, non_blocking=True)
             output = model(image2)

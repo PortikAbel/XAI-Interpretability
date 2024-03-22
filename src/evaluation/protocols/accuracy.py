@@ -79,7 +79,7 @@ def accuracy_protocol(model, args):
 
     for samples in tqdm(test_loader):
         images = samples["image"]
-        target = samples["class_idx"]
+        target = samples["target"]
         if args.gpu is not None:
             images = images.cuda(args.gpu, non_blocking=True)
             target = target.cuda(args.gpu, non_blocking=True)

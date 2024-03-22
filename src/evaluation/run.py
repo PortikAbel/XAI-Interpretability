@@ -32,7 +32,7 @@ from evaluation.explainer_wrapper.PIPNet import PIPNetExplainer
 
 parser = argparse.ArgumentParser(description="FunnyBirds - Explanation Evaluation")
 parser.add_argument(
-    "--data", metavar="DIR", required=True, help="path to dataset (default: imagenet)"
+    "--data", type=Path, required=True, help="path to dataset (default: imagenet)"
 )
 parser.add_argument(
     "--model",

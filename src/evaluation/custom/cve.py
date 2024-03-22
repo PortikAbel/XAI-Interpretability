@@ -207,7 +207,7 @@ def main():
             images = sample["image"].to(device)
             part_maps = sample["part_map"].to(device)
             params = sample["params"]
-            targets = sample["class_idx"].to(device)
+            targets = sample["target"].to(device)
 
             image_query = images[0].unsqueeze(0)[:, :, 16:-16, 16:-16]
             image_distractor = images[1].unsqueeze(0)[:, :, 16:-16, 16:-16]
