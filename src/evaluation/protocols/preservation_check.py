@@ -47,7 +47,9 @@ def preservation_check_protocol(model, explainer, args):
             all_parts = list(test_dataset.parts.keys())
             parts_removed = list(set(all_parts) - set(important_parts))
 
-            image2 = test_dataset.get_intervention(class_name, image_idx, parts_removed)["image"]
+            image2 = test_dataset.get_intervention(
+                class_name, image_idx, parts_removed
+            )["image"]
             image2 = image2.cuda(args.gpu, non_blocking=True)
             output2 = model(image2)
             model_prediction_removed = output2.argmax(1)

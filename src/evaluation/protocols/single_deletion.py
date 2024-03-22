@@ -38,7 +38,9 @@ def single_deletion_protocol(model, explainer, args):
         bird_parts_keys = list(test_dataset.parts.keys())
 
         for remove_part in bird_parts_keys:
-            image2 = test_dataset.get_intervention(class_name, image_idx, [remove_part])["image"]
+            image2 = test_dataset.get_intervention(
+                class_name, image_idx, [remove_part]
+            )["image"]
 
             image2 = image2.cuda(args.gpu, non_blocking=True)
             output = model(image2)

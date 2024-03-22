@@ -62,7 +62,7 @@ class RandomForeground(torch.nn.Module):
 class FunnyBirds(datasets.ImageFolder):
     """FunnyBirds dataset."""
 
-    def __init__(self, root_dir, mode, get_part_map: bool = False, transform =None):
+    def __init__(self, root_dir, mode, get_part_map: bool = False, transform=None):
         """
         Args:
             root_dir (string): Directory with all the images. E.g. ./datasets/FunnyBirds
@@ -117,10 +117,10 @@ class FunnyBirds(datasets.ImageFolder):
 
         if self.get_part_map:
             part_map_path = (
-                self.root_dir /
-                f"{self.mode}_part_map" /
-                f"{class_name}" /
-                f"{image_idx:06}.png"
+                self.root_dir
+                / f"{self.mode}_part_map"
+                / f"{class_name}"
+                / f"{image_idx:06}.png"
             )
             part_map = self.loader(part_map_path)
             part_map = transforms.ToTensor()(part_map)
@@ -328,11 +328,11 @@ class FunnyBirds(datasets.ImageFolder):
 
         keep_parts = list(set(parts) - set(parts_removed))
         path = (
-            self.root_dir /
-            f"{self.mode}_interventions" /
-            f"{class_idx}" /
-            f"{image_idx:06}" /
-            f"body_{'_'.join(sorted(keep_parts))}.png"
+            self.root_dir
+            / f"{self.mode}_interventions"
+            / f"{class_idx}"
+            / f"{image_idx:06}"
+            / f"body_{'_'.join(sorted(keep_parts))}.png"
         )
 
         image = Image.open(path)
@@ -347,12 +347,12 @@ class FunnyBirds(datasets.ImageFolder):
 
     def get_background_intervention(self, class_idx, image_idx, bg_object_id):
         path = (
-            self.root_dir /
-            f"{self.mode}_interventions" /
-            f"{class_idx}" /
-            f"{image_idx:06}" /
-            "background_interventions" /
-            f"{bg_object_id}.png"
+            self.root_dir
+            / f"{self.mode}_interventions"
+            / f"{class_idx}"
+            / f"{image_idx:06}"
+            / "background_interventions"
+            / f"{bg_object_id}.png"
         )
 
         image = Image.open(path)

@@ -98,8 +98,12 @@ def eval_prototypes_cub_parts_csv(
                 w_min_224 = w_min_224 + correction // 2.0
                 w_max_224 = w_max_224 - correction // 2.0
 
-            orig_img_location_h_min = (img_orig_height / args.image_shape[0]) * h_min_224
-            orig_img_location_h_max = (img_orig_height / args.image_shape[0]) * h_max_224
+            orig_img_location_h_min = (
+                img_orig_height / args.image_shape[0]
+            ) * h_min_224
+            orig_img_location_h_max = (
+                img_orig_height / args.image_shape[0]
+            ) * h_max_224
             orig_img_location_w_min = (img_orig_width / args.image_shape[1]) * w_min_224
             orig_img_location_w_max = (img_orig_width / args.image_shape[1]) * w_max_224
 
