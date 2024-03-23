@@ -48,7 +48,7 @@ class PIPNet(nn.Module):
         else:
             out = self._classification(pooled)  # shape (bs*2, num_classes)
             return proto_features, pooled, out
-        
+
     def _init_param_groups(self):
         self.param_groups = dict()
         self.param_groups["backbone"] = []
@@ -70,6 +70,7 @@ class PIPNet(nn.Module):
 
         elif "vgg" in self._args.net:
             import re
+
             for name, param in self._net.named_parameters():
                 if re.match(r"^features.(18|[23]\d)", name):
                     self.param_groups["to_train"].append(param)
@@ -141,7 +142,11 @@ class PIPNet(nn.Module):
                 "lr": self._args.lr,
                 "weight_decay_rate": self._args.weight_decay,
             },
-            {"params": self.param_groups["classification_bias"], "lr": self._args.lr, "weight_decay_rate": 0},
+            {
+                "params": self.param_groups["classification_bias"],
+                "lr": self._args.lr,
+                "weight_decay_rate": 0,
+            },
         ]
 
         if self._args.optimizer == "Adam":
@@ -149,15 +154,14 @@ class PIPNet(nn.Module):
                 paramlist_net, lr=self._args.lr, weight_decay=self._args.weight_decay
             )
             optimizer_classifier = torch.optim.AdamW(
-                paramlist_classifier, lr=self._args.lr, weight_decay=self._args.weight_decay
+                paramlist_classifier,
+                lr=self._args.lr,
+                weight_decay=self._args.weight_decay,
             )
-            return (
-                optimizer_net,
-                optimizer_classifier
-            )
+            return (optimizer_net, optimizer_classifier)
         else:
             raise ValueError("this optimizer type is not implemented")
-        
+
     def pretrain(self):
         for param in self.param_groups["to_train"]:
             param.requires_grad = True
@@ -201,7 +205,6 @@ class PIPNet(nn.Module):
             param.requires_grad = True
         for param in self.param_groups["backbone"]:
             param.requires_grad = True
-
 
 
 # adapted from
