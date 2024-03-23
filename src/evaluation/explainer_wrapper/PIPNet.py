@@ -56,7 +56,8 @@ class PIPNetExplainer(AbstractAttributionExplainer):
         target_class = target[idx]
 
         sim_weights = (
-            pooled[idx, :] * self.model.model.module._classification.weight[target_class, :]
+            pooled[idx, :]
+            * self.model.model.module._classification.weight[target_class, :]
         )
         _, sorted_proto_indices = torch.sort(sim_weights)
         sorted_proto_indices = sorted_proto_indices[
@@ -95,9 +96,9 @@ class PIPNetExplainer(AbstractAttributionExplainer):
 
             inference_image_mask = mask.to(image.device)
             similarity_score = pooled[idx][prototype_index]
-            class_connection = self.model.model.module._classification.weight[target_class][
-                prototype_index
-            ]
+            class_connection = self.model.model.module._classification.weight[
+                target_class
+            ][prototype_index]
             attribution += inference_image_mask * similarity_score * class_connection
 
             self.inference_image_masks.append(mask)

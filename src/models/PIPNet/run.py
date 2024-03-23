@@ -12,7 +12,7 @@ import models.PIPNet.visualize.logs as visual_logs
 from models.PIPNet.pipnet import PIPNet, get_network
 from models.PIPNet.test_setp import eval_ood, eval_pipnet, get_thresholds
 from models.PIPNet.train_setp import train_pipnet
-from models.PIPNet.util.args import get_args, get_optimizer_nn, save_args
+from models.PIPNet.util.args import get_args, save_args
 from models.PIPNet.util.data import get_dataloaders
 from models.PIPNet.util.eval_cub_csv import (
     eval_prototypes_cub_parts_csv,
@@ -112,13 +112,7 @@ def run_pipnet(args=None):
     net = net.to(device=device)
     net = nn.DataParallel(net, device_ids=device_ids)
 
-    (
-        optimizer_net,
-        optimizer_classifier,
-        params_to_freeze,
-        params_to_train,
-        params_backbone,
-    ) = get_optimizer_nn(net, args)
+    optimizer_net, optimizer_classifier = net.module.get_optimizers()
 
     # Initialize or load model
     with torch.no_grad():
@@ -238,21 +232,6 @@ def run_pipnet(args=None):
     lrs_pretrain_net = []
     # PRETRAINING PROTOTYPES PHASE
     for epoch in range(1, args.epochs_pretrain + 1):
-        for param in params_to_train:
-            param.requires_grad = True
-        for param in net.module._add_on.parameters():
-            param.requires_grad = True
-        for param in net.module._classification.parameters():
-            param.requires_grad = False
-        for param in params_to_freeze:
-            param.requires_grad = (
-                True  # can be set to False when you want to freeze more layers
-            )
-        for param in params_backbone:
-            # can be set to True when you want to train whole backbone
-            # (e.g. if dataset is very different from ImageNet)
-            param.requires_grad = args.train_backbone_during_pretrain
-
         print(
             "\nPretrain Epoch",
             epoch,
@@ -262,6 +241,7 @@ def run_pipnet(args=None):
         )
 
         # Pretrain prototypes
+        net.module.pretrain()
         train_info = train_pipnet(
             net,
             train_loader_pretraining,
@@ -341,13 +321,7 @@ def run_pipnet(args=None):
 
     # SECOND TRAINING PHASE re-initialize optimizers and schedulers
     # for second training phase
-    (
-        optimizer_net,
-        optimizer_classifier,
-        params_to_freeze,
-        params_to_train,
-        params_backbone,
-    ) = get_optimizer_nn(net, args)
+    optimizer_net, optimizer_classifier = net.module.get_optimizers()
     scheduler_net = torch.optim.lr_scheduler.CosineAnnealingLR(
         optimizer_net,
         T_max=len(train_loader) * args.epochs,
@@ -372,10 +346,6 @@ def run_pipnet(args=None):
             T_mult=1,
             verbose=False,
         )
-    for param in net.module.parameters():
-        param.requires_grad = False
-    for param in net.module._classification.parameters():
-        param.requires_grad = True
 
     frozen = True
     lrs_net = []
@@ -387,42 +357,19 @@ def run_pipnet(args=None):
         if epoch <= args.epochs_to_finetune and (
             args.epochs_pretrain > 0 or args.state_dict_dir_net is not None
         ):
-            for param in net.module._add_on.parameters():
-                param.requires_grad = False
-            for param in params_to_train:
-                param.requires_grad = False
-            for param in params_to_freeze:
-                param.requires_grad = False
-            for param in params_backbone:
-                param.requires_grad = False
+            net.module.finetune()
             finetune = True
 
-        else:
+        # freeze first layers of backbone, train rest
+        elif epoch <= args.freeze_epochs:
             finetune = False
-            if frozen:
-                # unfreeze backbone
-                if epoch > (args.freeze_epochs):
-                    for param in net.module._add_on.parameters():
-                        param.requires_grad = True
-                    for param in params_to_freeze:
-                        param.requires_grad = True
-                    for param in params_to_train:
-                        param.requires_grad = True
-                    for param in params_backbone:
-                        param.requires_grad = True
-                    frozen = False
-                # freeze first layers of backbone, train rest
-                else:
-                    for param in params_to_freeze:
-                        # Can be set to False if you want
-                        # to train fewer layers of backbone
-                        param.requires_grad = True
-                    for param in net.module._add_on.parameters():
-                        param.requires_grad = True
-                    for param in params_to_train:
-                        param.requires_grad = True
-                    for param in params_backbone:
-                        param.requires_grad = False
+            net.module.freeze()
+            frozen = True
+
+        # unfreeze backbone
+        else:
+            net.module.unfreeze()
+            frozen = False
 
         print("\n Epoch", epoch, "frozen:", frozen, flush=True)
         visual_logs.class_weights_heatmap(
@@ -437,24 +384,13 @@ def run_pipnet(args=None):
                 net.module._classification.weight.copy_(
                     torch.clamp(net.module._classification.weight.data - 0.001, min=0.0)
                 )
-                print(
-                    "Classifier weights: ",
-                    net.module._classification.weight[
-                        net.module._classification.weight.nonzero(as_tuple=True)
-                    ],
-                    (
-                        net.module._classification.weight[
-                            net.module._classification.weight.nonzero(as_tuple=True)
-                        ]
-                    ).shape,
-                    flush=True,
-                )
+                cls_w = net.module._classification.weight[
+                    net.module._classification.weight.nonzero(as_tuple=True)
+                ]
+                print(f"Classifier weights: {cls_w}\n{cls_w.shape}", flush=True)
                 if args.bias:
-                    print(
-                        "Classifier bias: ",
-                        net.module._classification.bias,
-                        flush=True,
-                    )
+                    cls_b = net.module._classification.bias
+                    print(f"Classifier bias: {cls_b}", flush=True)
                 torch.set_printoptions(profile="default")
 
         train_info = train_pipnet(
