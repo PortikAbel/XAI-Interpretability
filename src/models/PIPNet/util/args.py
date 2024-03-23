@@ -1,12 +1,8 @@
 import argparse
 import os
 import pickle
-import random
 from pathlib import Path
-
 import numpy as np
-import torch
-import torch.optim
 
 
 def get_args() -> argparse.Namespace:
@@ -350,106 +346,3 @@ def save_args(args: argparse.Namespace, directory_path: Path) -> None:
     # Pickle the args for possible reuse
     with (directory_path / "args.pickle").open(mode="wb") as f:
         pickle.dump(args, f)
-
-
-def get_optimizer_nn(
-    net, args: argparse.Namespace
-) -> tuple[torch.optim.Optimizer, torch.optim.Optimizer, list, list, list]:
-    torch.manual_seed(args.seed)
-    torch.cuda.manual_seed_all(args.seed)
-    random.seed(args.seed)
-    np.random.seed(args.seed)
-
-    # create parameter groups
-    params_to_freeze = []
-    params_to_train = []
-    params_backbone = []
-    # set up optimizer
-    if "resnet" in args.net:
-        # freeze resnet50 except last convolutional layer
-        for name, param in net.module._net.named_parameters():
-            if "layer4.2" in name:
-                params_to_train.append(param)
-            elif "layer4" in name or "layer3" in name:
-                params_to_freeze.append(param)
-            elif "layer2" in name:
-                params_backbone.append(param)
-            else:  # such that model training fits on one gpu.
-                param.requires_grad = False
-                # params_backbone.append(param)
-
-    elif "convnext" in args.net:
-        for name, param in net.module._net.named_parameters():
-            if "features.7.2" in name:
-                params_to_train.append(param)
-            elif "features.7" in name or "features.6" in name:
-                params_to_freeze.append(param)
-            # CUDA MEMORY ISSUES?
-            # COMMENT LINE 202-203 AND USE THE FOLLOWING LINES INSTEAD
-            # elif 'features.5' in name or 'features.4' in name:
-            #     params_backbone.append(param)
-            # else:
-            #     param.requires_grad = False
-            else:
-                params_backbone.append(param)
-    else:
-        print("Network is not ResNet or ConvNext.", flush=True)
-    classification_weight = []
-    classification_bias = []
-    for name, param in net.module._classification.named_parameters():
-        if "weight" in name:
-            classification_weight.append(param)
-        elif "multiplier" in name:
-            param.requires_grad = False
-        else:
-            if args.bias:
-                classification_bias.append(param)
-
-    paramlist_net = [
-        {
-            "params": params_backbone,
-            "lr": args.lr_net,
-            "weight_decay_rate": args.weight_decay,
-        },
-        {
-            "params": params_to_freeze,
-            "lr": args.lr_block,
-            "weight_decay_rate": args.weight_decay,
-        },
-        {
-            "params": params_to_train,
-            "lr": args.lr_block,
-            "weight_decay_rate": args.weight_decay,
-        },
-        {
-            "params": net.module._add_on.parameters(),
-            "lr": args.lr_block * 10.0,
-            "weight_decay_rate": args.weight_decay,
-        },
-    ]
-
-    paramlist_classifier = [
-        {
-            "params": classification_weight,
-            "lr": args.lr,
-            "weight_decay_rate": args.weight_decay,
-        },
-        {"params": classification_bias, "lr": args.lr, "weight_decay_rate": 0},
-    ]
-
-    if args.optimizer == "Adam":
-        optimizer_net = torch.optim.AdamW(
-            paramlist_net, lr=args.lr, weight_decay=args.weight_decay
-        )
-        optimizer_classifier = torch.optim.AdamW(
-            paramlist_classifier, lr=args.lr, weight_decay=args.weight_decay
-        )
-        return (
-            optimizer_net,
-            optimizer_classifier,
-            params_to_freeze,
-            params_to_train,
-            params_backbone,
-        )
-    else:
-        raise ValueError("this optimizer type is not implemented")
