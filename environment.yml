@@ -7,6 +7,7 @@ dependencies:
   - albumentations
   - black
   - black-jupyter
+  - captum
   - cudatoolkit
   - flake8
   - isort

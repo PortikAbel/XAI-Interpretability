@@ -89,12 +89,12 @@ class PIPNet(nn.Module):
                     self.param_groups["to_freeze"].append(param)
                 # CUDA MEMORY ISSUES?
                 # COMMENT LINE 202-203 AND USE THE FOLLOWING LINES INSTEAD
-                # elif 'features.5' in name or 'features.4' in name:
-                #     self.param_groups["backbone"].append(param)
-                # else:
-                #     param.requires_grad = False
-                else:
+                elif 'features.5' in name or 'features.4' in name:
                     self.param_groups["backbone"].append(param)
+                else:
+                    param.requires_grad = False
+                # else:
+                #     self.param_groups["backbone"].append(param)
         else:
             print("Network is not ResNet/VGG/ConvNext.", flush=True)
         self.param_groups["classification_weight"] = []
