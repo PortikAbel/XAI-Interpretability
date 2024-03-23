@@ -136,7 +136,7 @@ def main():
             images = sample["image"].to(device)
             part_map_test = sample["part_map"].to(device)
 
-            targets = sample["class_idx"].to(device)
+            targets = sample["target"].to(device)
 
             explainer.explain(images, target=targets)
 
@@ -173,7 +173,7 @@ def main():
                 )
                 for sample_train in train_loader:
                     image_train = sample_train["image"].to(device)
-                    # target_train = sample_train["class_idx"].to(device)
+                    # target_train = sample_train["target"].to(device)
                     # print(target_train)
                     # if target_train != targets:
                     #    continue

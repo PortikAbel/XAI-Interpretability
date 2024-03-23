@@ -20,11 +20,11 @@ def deletion_check_protocol(model, explainer, args):
     number_valid_samples = 0
     for samples in tqdm(test_loader):
         images = samples["image"]
-        target = samples["class_idx"]
+        target = samples["target"]
         part_maps = samples["part_map"]
         params = samples["params"]
-        class_idxs = samples["class_idx"]
-        image_idxs = samples["image_idx"]
+        class_name = samples["class_name"].item()
+        image_idx = samples["image_idx"].item()
         params = test_dataset.get_params_for_single(params)
         if args.gpu is not None:
             images = images.cuda(args.gpu, non_blocking=True)
@@ -47,9 +47,7 @@ def deletion_check_protocol(model, explainer, args):
             parts_removed = important_parts
 
             image2 = test_dataset.get_intervention(
-                class_idxs.squeeze(0).item(),
-                image_idxs.squeeze(0).item(),
-                parts_removed,
+                class_name, image_idx, parts_removed
             )["image"]
             image2 = image2.cuda(args.gpu, non_blocking=True)
             output2 = model(image2)
