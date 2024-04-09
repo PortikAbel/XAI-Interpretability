@@ -55,24 +55,17 @@ def train_pipnet(
             count_param += 1
     print("Number of parameters that require gradient: ", count_param, flush=True)
 
-    if pretrain:
-        align_pf_weight = (epoch / args.epochs_pretrain) * 1.0
-        t_weight = 5.0
-        unif_weight = 0.5
-        var_weigth = 0.5
-        cl_weight = 0.0
-    else:
+    align_pf_weight = (epoch / args.epochs_pretrain) * 1.0
+    t_weight = args.tanh_loss
+    unif_weight = args.unif_loss
+    var_weigth = args.variance_loss
+    cl_weight = 0.0
+    if not pretrain:
         align_pf_weight = 5.0
         t_weight = 2.0
         unif_weight = 2.0
         var_weigth = 2.0
         cl_weight = 2.0
-    if not args.tanh_loss:
-        t_weight = 0.0
-    if not args.unif_loss:
-        unif_weight = 0.0
-    if not args.variance_loss:
-        var_weigth = 0.0
 
     print(
         f"Align weight: {align_pf_weight}, "
