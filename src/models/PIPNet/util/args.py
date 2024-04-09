@@ -194,13 +194,15 @@ def get_args() -> argparse.Namespace:
     )
     loss_group.add_argument(
         "--tanh_loss",
-        action="store_true",
+        type=float,
+        default=0.0,
         help="""tanh loss regulates that every prototype
             should be at least oncepresent in a mini-batch.""",
     )
     loss_group.add_argument(
         "--unif_loss",
-        action="store_true",
+        type=float,
+        default=0.0,
         help="""Our tanh-loss optimizes for uniformity
             and was sufficient for our experiments.
             However, if pretraining of the prototypes
@@ -210,7 +212,8 @@ def get_args() -> argparse.Namespace:
     )
     loss_group.add_argument(
         "--variance_loss",
-        action="store_true",
+        type=float,
+        default=0.0,
         help="""Regularizer term that enforces variance of features
             from https://arxiv.org/abs/2105.04906""",
     )
