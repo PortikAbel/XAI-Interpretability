@@ -20,7 +20,7 @@ from models.PIPNet.util.eval_cub_csv import (
     get_topk_cub,
 )
 from models.PIPNet.util.func import init_weights_xavier
-from models.PIPNet.util.log import Log
+from utils.log import Log
 from models.PIPNet.visualize.pipnet import visualize, visualize_top_k
 from models.PIPNet.visualize.prediction import vis_pred, vis_pred_experiments
 

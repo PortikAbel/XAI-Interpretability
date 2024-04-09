@@ -7,7 +7,7 @@ from torch.utils.data import DataLoader
 from tqdm import tqdm
 
 from models.PIPNet.util.func import topk_accuracy
-from models.PIPNet.util.log import Log
+from utils.log import Log
 
 
 @torch.no_grad()

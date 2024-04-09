@@ -11,7 +11,7 @@ from PIL import Image
 from PIL import ImageDraw as D
 from tqdm import tqdm
 
-from models.PIPNet.util.log import Log
+from utils.log import Log
 from models.PIPNet.visualize import get_patch, get_patch_size
 
 

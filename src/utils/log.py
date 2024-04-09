@@ -1,8 +1,6 @@
 import argparse
 from pathlib import Path
 
-from models.PIPNet.util.args import save_args
-
 
 class Log:
 
@@ -80,9 +78,6 @@ class Log:
         # Write a new line with the given values
         with (self.log_dir / f"{log_name}.csv").open(mode="a") as f:
             f.write(",".join(str(v) for v in (key,) + values) + "\n")
-
-    def log_args(self, args: argparse.Namespace):
-        save_args(args, self._log_dir)
 
     def close(self):
         self._tqdm_file.close()
