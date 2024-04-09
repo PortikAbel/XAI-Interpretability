@@ -2,7 +2,9 @@ import argparse
 import os
 import pickle
 from pathlib import Path
+from datetime import datetime as dt
 import numpy as np
+from utils.environment import get_env
 
 
 def get_args() -> argparse.Namespace:
@@ -223,12 +225,6 @@ def get_args() -> argparse.Namespace:
         "Specifies the directory where the log files and other outputs should be saved",
     )
     log_group.add_argument(
-        "--log_dir",
-        type=Path,
-        default="./runs/run_pipnet",
-        help="The directory in which train progress should be logged",
-    )
-    log_group.add_argument(
         "--dir_for_saving_images",
         type=str,
         default="visualization_results",
@@ -320,7 +316,8 @@ def get_args() -> argparse.Namespace:
     if not args.tanh_loss and not args.unif_loss and not args.variance_loss:
         args.tanh_loss = True
 
-    args.log_dir = Path(os.getenv("PROJECT_ROOT")) / "models" / "PIPNet" / args.log_dir
+    args.log_dir = Path(get_env("PROJECT_ROOT")) / "models" / "PIPNet" / "runs"
+    args.log_dir = args.log_dir / args.net / dt.now().strftime("%Y-%m-%d_%H-%M-%S")
     args.log_dir = args.log_dir.resolve()
     args.log_dir.mkdir(parents=True, exist_ok=True)
 
