@@ -1,25 +1,37 @@
+import argparse
 import time
 
 import numpy as np
 import torch
+import torch.utils.data
 from sklearn.metrics import f1_score
 
 from models.ProtoPNet.util.helpers import list_of_distances
+from utils.log import Log
 
 
 def _train_or_test(
-    args,
-    model,
-    dataloader,
-    optimizer=None,
-    class_specific=True,
-    use_l1_mask=True,
-    log=print,
-):
+    args: argparse.Namespace,
+    model: torch.nn.DataParallel | torch.nn.Module,
+    dataloader: torch.utils.data.DataLoader,
+    log: Log,
+    optimizer: torch.optim.Optimizer = None,
+    class_specific: bool = True,
+    use_l1_mask: bool = True,
+    tensorboard_writer=None,
+) -> float:
     """
-    model: the multi-gpu model
-    dataloader:
-    optimizer: if ``None``, test phase is performed
+    Perform a train or test step.
+
+    :param args:
+    :param model: multi-gpu model
+    :param dataloader:
+    :param log: logger
+    :param optimizer: if ``None``, then no gradient update is performed.
+        Defaults to ``None``.
+    :param class_specific: Defaults to ``True``.
+    :param use_l1_mask: Defaults to ``True``.
+    :return: achieved accuracy
     """
     is_train = optimizer is not None
     start = time.time()
@@ -45,7 +57,7 @@ def _train_or_test(
             # nn.Module has implemented __call__() function
             # so no need to call .forward
             output, additional_out = model(input_)
-            min_distances = additional_out["min_distances"]
+            min_distances = additional_out.min_distances
 
             # compute loss
             if args.binary_cross_entropy:
@@ -117,8 +129,8 @@ def _train_or_test(
                     # to the closest target class prototype
                     min_distance_target = max_dist - inverted_distances.reshape((-1, 1))
 
-                    all_distances = additional_out["distances"]
-                    min_indices = additional_out["min_indices"]
+                    all_distances = additional_out.distances
+                    min_indices = additional_out.min_indices
 
                     anchor_index = min_indices[
                         torch.arange(0, target_proto_index.size(0), dtype=torch.long),
@@ -206,42 +218,52 @@ def _train_or_test(
 
     end = time.time()
 
-    log("\ttime: \t{0}".format(end - start))
-    log("\tcross ent: \t{0}".format(total_cross_entropy / n_batches))
-    log("\tcluster: \t{0}".format(total_cluster_cost / n_batches))
+    log.info(f"\t\t{'time:':13}{end - start}")
+    log.info(f"\t\t{'cross ent:':13}{total_cross_entropy / n_batches}")
+    log.info(f"\t\t{'cluster:':13}{total_cluster_cost / n_batches}")
     if class_specific:
-        log("\tseparation:\t{0}".format(total_separation_cost / n_batches))
-    log("\taccu: \t\t{0}%".format(n_correct / n_examples * 100))
-    log(
-        "\tmicro f1: \t\t{0}".format(
-            f1_score(true_labels, predicted_labels, average="micro")
-        )
+        log.info(f"\t\t{'separation:':13}{total_separation_cost / n_batches}")
+    log.info(f"\t\t{'accu:':13}{n_correct / n_examples:.2%}")
+    log.info(
+        f"\t\t{'micro f1:':13}"
+        f"{f1_score(true_labels, predicted_labels, average='micro')}"
     )
-    log(
-        "\tmacro f1: \t\t{0}".format(
-            f1_score(true_labels, predicted_labels, average="macro")
-        )
+    log.info(
+        f"\t\t{'macro f1:':13}"
+        f"{f1_score(true_labels, predicted_labels, average='macro')}"
     )
-    log("\tl1: \t\t{0}".format(model.module.last_layer.weight.norm(p=1).item()))
+    log.info(f"\t\t{'l1:':13}{model.module.last_layer.weight.norm(p=1).item()}")
     p = model.module.prototype_vectors.view(model.module.num_prototypes, -1).cpu()
     with torch.no_grad():
         p_avg_pair_dist = torch.mean(list_of_distances(p, p))
-    log("\tp dist pair: \t{0}".format(p_avg_pair_dist.item()))
+    log.info(f"\t\tp dist pair: {p_avg_pair_dist.item()}")
 
     return n_correct / n_examples
 
 
 def train(
-    args,
-    model,
-    dataloader,
-    optimizer,
-    class_specific=False,
-    log=print,
-):
+    args: argparse.Namespace,
+    model: torch.nn.DataParallel | torch.nn.Module,
+    dataloader: torch.utils.data.DataLoader,
+    log: Log,
+    optimizer: torch.optim.Optimizer,
+    class_specific: bool = False,
+    tensorboard_writer=None,
+) -> float:
+    """
+    Train the model.
+
+    :param args:
+    :param model: multi-gpu model
+    :param dataloader:
+    :param log:
+    :param optimizer:
+    :param class_specific: Defaults to ``False``.
+    :return: train accuracy
+    """
     assert optimizer is not None
 
-    log("\ttrain")
+    log.info("\ttrain")
     model.train()
     return _train_or_test(
         args=args,
@@ -254,13 +276,24 @@ def train(
 
 
 def test(
-    args,
-    model,
-    dataloader,
-    class_specific=False,
-    log=print,
-):
-    log("\ttest")
+    args: argparse.Namespace,
+    model: torch.nn.DataParallel | torch.nn.Module,
+    dataloader: torch.utils.data.DataLoader,
+    log: Log,
+    class_specific: bool = False,
+    tensorboard_writer=None,
+) -> float:
+    """
+    Test the model.
+
+    :param args:
+    :param model: multi-gpu model
+    :param dataloader:
+    :param log:
+    :param class_specific: Defaults to ``False``.
+    :return: test accuracy
+    """
+    log.info("\ttest")
     model.eval()
     return _train_or_test(
         args=args,
@@ -272,7 +305,7 @@ def test(
     )
 
 
-def last_only(model, log=print):
+def last_only(model, log):
     for p in model.module.features.parameters():
         p.requires_grad = False
     for p in model.module.add_on_layers.parameters():
@@ -281,10 +314,10 @@ def last_only(model, log=print):
     for p in model.module.last_layer.parameters():
         p.requires_grad = True
 
-    log("\tlast layer")
+    log.info("\tlast layer")
 
 
-def warm_only(model, log=print):
+def warm_only(model, log):
     for p in model.module.features.parameters():
         p.requires_grad = False
     for p in model.module.add_on_layers.parameters():
@@ -293,10 +326,10 @@ def warm_only(model, log=print):
     for p in model.module.last_layer.parameters():
         p.requires_grad = True
 
-    log("\twarm")
+    log.info("\twarm")
 
 
-def joint(model, log=print):
+def joint(model, log):
     for p in model.module.features.parameters():
         p.requires_grad = True
     for p in model.module.add_on_layers.parameters():
@@ -305,4 +338,4 @@ def joint(model, log=print):
     for p in model.module.last_layer.parameters():
         p.requires_grad = True
 
-    log("\tjoint")
+    log.info("\tjoint")

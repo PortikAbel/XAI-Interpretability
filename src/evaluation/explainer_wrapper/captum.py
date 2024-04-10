@@ -2,7 +2,6 @@ from evaluation.explainer_wrapper.base import AbstractAttributionExplainer
 
 
 class CaptumAttributionExplainer(AbstractAttributionExplainer):
-
     """
     A wrapper for Captum attribution methods.
     Args:

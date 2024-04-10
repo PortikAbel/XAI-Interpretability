@@ -178,12 +178,6 @@ def define_parser():
         "Specifies the directory where the log files and other outputs should be saved",
     )
     log_group.add_argument(
-        "--dir_for_saving_images",
-        type=str,
-        default="visualization_results",
-        help="Directory for saving the prototypes and explanations",
-    )
-    log_group.add_argument(
         "--log_prototype_activations_violin_plot",
         action="store_true",
         help="Logs a violinplot in tensorboard for every prototype with their "

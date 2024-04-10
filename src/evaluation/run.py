@@ -4,31 +4,30 @@ from pathlib import Path
 
 import torch
 import torch.nn as nn
-from captum.attr import IntegratedGradients, InputXGradient
+from captum.attr import InputXGradient, IntegratedGradients
 
-from data.config import dataset_config
-from models.PIPNet.util.args import get_args as get_pipnet_args
-from models.resnet import resnet50
-from models.vgg import vgg16
-import models.ProtoPNet.model as model_ppnet
 import models.PIPNet.pipnet as model_pipnet
-from evaluation.model_wrapper.ProtoPNet import ProtoPNetModel
+import models.ProtoPNet.model as model_ppnet
+from data.config import dataset_config
+from evaluation.explainer_wrapper.captum import CaptumAttributionExplainer
+from evaluation.explainer_wrapper.PIPNet import PIPNetExplainer
+from evaluation.explainer_wrapper.ProtoPNet import ProtoPNetExplainer
 from evaluation.model_wrapper.PIPNet import PipNetModel
+from evaluation.model_wrapper.ProtoPNet import ProtoPNetModel
 from evaluation.model_wrapper.standard import StandardModel
 from evaluation.protocols import (
     accuracy_protocol,
-    controlled_synthetic_data_check_protocol,
-    single_deletion_protocol,
-    preservation_check_protocol,
-    deletion_check_protocol,
-    target_sensitivity_protocol,
-    distractibility_protocol,
     background_independence_protocol,
+    controlled_synthetic_data_check_protocol,
+    deletion_check_protocol,
+    distractibility_protocol,
+    preservation_check_protocol,
+    single_deletion_protocol,
+    target_sensitivity_protocol,
 )
-from evaluation.explainer_wrapper.captum import CaptumAttributionExplainer
-from evaluation.explainer_wrapper.ProtoPNet import ProtoPNetExplainer
-from evaluation.explainer_wrapper.PIPNet import PIPNetExplainer
-
+from models.PIPNet.util.args import get_args as get_pipnet_args
+from models.resnet import resnet50
+from models.vgg import vgg16
 
 parser = argparse.ArgumentParser(description="FunnyBirds - Explanation Evaluation")
 parser.add_argument(
@@ -155,7 +154,7 @@ def main():
         model = model_ppnet.construct_PPNet(
             base_architecture=base_architecture,
             pretrained=True,
-            img_size=img_size,
+            img_shape=img_size,
             prototype_shape=prototype_shape,
             num_classes=num_classes,
             prototype_activation_function=prototype_activation_function,

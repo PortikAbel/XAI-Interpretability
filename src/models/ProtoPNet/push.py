@@ -14,6 +14,7 @@ from models.ProtoPNet.util.save import save_image
 def push_prototypes(
     dataloader,  # pytorch dataloader (must be un-normalized in [0,1])
     prototype_network_parallel,  # pytorch network with prototype_vectors
+    log,
     class_specific=True,
     preprocess_input_function=None,  # normalize if needed
     prototype_layer_stride=1,
@@ -24,11 +25,10 @@ def push_prototypes(
     prototype_self_act_filename_prefix=None,
     proto_bound_boxes_filename_prefix=None,
     save_prototype_class_identity=True,  # which class the prototype image comes from
-    log=print,
     prototype_activation_function_in_np=None,
 ):
     prototype_network_parallel.eval()
-    log("\tpush")
+    log.info("\tpush")
 
     start = time.time()
     prototype_shape = prototype_network_parallel.module.prototype_shape
@@ -64,7 +64,7 @@ def push_prototypes(
     if root_dir_for_saving_prototypes is not None:
         if epoch_number is not None:
             proto_epoch_dir = os.path.join(
-                root_dir_for_saving_prototypes, "epoch-" + str(epoch_number)
+                root_dir_for_saving_prototypes, f"epoch-{epoch_number}"
             )
             makedir(proto_epoch_dir)
         else:
@@ -121,14 +121,14 @@ def push_prototypes(
             proto_bound_boxes,
         )
 
-    log("\tExecuting push ...")
+    log.info("\tExecuting push ...")
     prototype_update = np.reshape(global_min_fmap_patches, tuple(prototype_shape))
     prototype_network_parallel.module.prototype_vectors.data.copy_(
         torch.tensor(prototype_update, dtype=torch.float32).cuda()
     )
     # prototype_network_parallel.cuda()
     end = time.time()
-    log("\tpush time: \t{0}".format(end - start))
+    log.info(f"\t\tpush time: \t{end - start}")
 
 
 # update each prototype for current search batch
@@ -156,7 +156,6 @@ def update_prototypes_on_batch(
         # print('preprocessing input for pushing ...')
         # search_batch = copy.deepcopy(search_batch_input)
         search_batch = preprocess_input_function(search_batch_input)
-
     else:
         search_batch = search_batch_input
 

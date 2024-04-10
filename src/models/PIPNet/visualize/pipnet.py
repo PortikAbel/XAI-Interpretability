@@ -11,8 +11,8 @@ from PIL import Image
 from PIL import ImageDraw as D
 from tqdm import tqdm
 
-from utils.log import Log
 from models.PIPNet.visualize import get_patch, get_patch_size
+from utils.log import Log
 
 
 @torch.no_grad()

@@ -48,19 +48,21 @@ def set_device(gpu_ids: str, disable_gpu: bool = False) -> tuple[torch.device, l
 class GeneralModelParametersParser(argparse.ArgumentParser):
     """
     Parse general arguments.
-    
-    :param model_name: The name of the model being trained
     """
 
-    def __init__(self, model_name: str, **kwargs):
+    def __init__(self, **kwargs):
         super().__init__(
-            "General arguments", description="Specifies general arguments", **kwargs,
+            "General arguments",
+            description="Specifies general arguments",
+            **kwargs,
         )
         self.add_argument(
             "--seed",
             type=int,
             default=1,
-            help="Random seed. Note that there will still be differences between runs due to nondeterminism. See https://pytorch.org/docs/stable/notes/randomness.html",
+            help="Random seed. Note that there will still be differences "
+            "between runs due to nondeterminism. "
+            "See https://pytorch.org/docs/stable/notes/randomness.html",
         )
         self.add_argument(
             "--num_workers",
@@ -69,9 +71,7 @@ class GeneralModelParametersParser(argparse.ArgumentParser):
             help="Num workers in dataloaders.",
         )
 
-        gpu_group = self.add_argument_group(
-            "GPU", "Specifies the GPU settings"
-        )
+        gpu_group = self.add_argument_group("GPU", "Specifies the GPU settings")
         gpu_group.add_argument(
             "--gpu_ids",
             type=str,
@@ -79,14 +79,15 @@ class GeneralModelParametersParser(argparse.ArgumentParser):
             help="ID of gpu. Can be separated with comma",
         )
         gpu_group.add_argument(
-            "--disable_cuda",
+            "--disable_gpu",
             action="store_true",
             help="Flag that disables GPU usage if set",
         )
 
         log_group = self.add_argument_group(
             "Logging",
-            "Specifies the directory where the log files and other outputs should be saved",
+            "Specifies the directory where the log files "
+            "and other outputs should be saved",
         )
         log_group.add_argument(
             "--log_dir",
@@ -114,9 +115,11 @@ class GeneralModelParametersParser(argparse.ArgumentParser):
             "--validation_size",
             type=float,
             default=0.0,
-            help="Split between training and validation set. Can be zero when there is a separate test or validation directory. Should be between 0 and 1. Used for partimagenet (e.g. 0.2)",
+            help="Split between training and validation set. Can be zero when "
+            "there is a separate test or validation directory. "
+            "Should be between 0 and 1. Used for partimagenet (e.g. 0.2)",
         )
-    
+
         image_size_group = dataset_group.add_argument_group(
             "Image size",
             "Specifies the size of the images. At least one of them is required",
@@ -131,25 +134,21 @@ class GeneralModelParametersParser(argparse.ArgumentParser):
             type=np.uint16,
             help="The height of the images in the dataset",
         )
-        
-        self.__model_name = model_name
-    
-    def _validate_data(self, args: argparse.Namespace) -> argparse.Namespace:
+
+    @staticmethod
+    def validate_data(args: argparse.Namespace, model_name: str) -> argparse.Namespace:
         """
         Validate the data.
 
         :param args: The arguments to validate
+        :param model_name: The name of the model being trained
         """
-        args.log_dir = Path(
-            get_env("PROJECT_ROOT"), "runs", self.__model_name, args.log_dir
-        )
+        args.log_dir = Path(get_env("PROJECT_ROOT"), "runs", model_name, args.log_dir)
         args.log_dir = args.log_dir.resolve()
         args.log_dir.mkdir(parents=True, exist_ok=True)
 
-        args.device, args.device_ids = set_device(
-            args.gpu_ids, args.disable_gpu
-        )
-        
+        args.device, args.device_ids = set_device(args.gpu_ids, args.disable_gpu)
+
         if args.dataset not in DATASETS:
             raise ValueError(f"Dataset {args.dataset} is not supported")
         dataset_config = DATASETS[args.dataset]
@@ -162,26 +161,20 @@ class GeneralModelParametersParser(argparse.ArgumentParser):
             args.image_width = args.image_height
         elif args.image_height is None:
             args.image_height = args.image_width
-        args.image_shape = np.array((args.image_height, args.image_width))
+        args.img_shape = np.array((args.image_height, args.image_width))
         args.num_classes = dataset_config["num_classes"]
         args.color_channels = dataset_config["color_channels"]
         args.train_dir = dataset_config["train_dir"]
-        args.train_dir_projection = dataset_config["train_dir_projection"]
+        args.train_dir_projection = dataset_config.get(
+            "train_dir_projection", args.train_dir
+        )
         args.test_dir = dataset_config["test_dir"]
-        args.test_dir_projection = dataset_config["test_dir_projection"]
+        args.test_dir_projection = dataset_config.get(
+            "test_dir_projection", args.test_dir
+        )
         args.image_folders = dataset_config["image_folders"]
         args.mean = dataset_config["mean"]
         args.std = dataset_config["std"]
         args.augm = dataset_config["augm"]
-        
+
         return args
-        
-    def parse_known_args(self, args: list = None, namespace: argparse.Namespace = None):
-        namespace, args = super().parse_known_args(args, namespace)
-        namespace = self._validate_data(namespace)
-        return namespace, args
-        
-    def parse_args(self, args: list = None, namespace: argparse.Namespace = None):
-        namespace = super().parse_args(args, namespace)
-        namespace = self._validate_data(namespace)
-        return namespace

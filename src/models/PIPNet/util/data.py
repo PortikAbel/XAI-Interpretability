@@ -12,9 +12,10 @@ from sklearn.model_selection import train_test_split
 from torch import Tensor
 
 from data.config import DATASETS
+from utils.log import Log
 
 
-def get_dataloaders(args: argparse.Namespace):
+def get_dataloaders(log: Log, args: argparse.Namespace):
     """
     Get data loaders
     """
@@ -28,10 +29,10 @@ def get_dataloaders(args: argparse.Namespace):
         classes,
         train_indices,
         targets,
-    ) = get_datasets(args)
+    ) = get_datasets(log, args)
 
     # Determine if GPU should be used
-    cuda = not args.disable_cuda and torch.cuda.is_available()
+    cuda = not args.disable_gpu and torch.cuda.is_available()
     sampler = None
     to_shuffle_train_set = True
 
@@ -49,7 +50,7 @@ def get_dataloaders(args: argparse.Namespace):
             ]
         )
         weight = 1.0 / class_sample_count.float()
-        print("Weights for weighted sampler: ", weight, flush=True)
+        log.info(f"Weights for weighted sampler: {weight}")
         samples_weight = torch.tensor([weight[t] for t in targets[train_indices]])
         # Create sampler, dataset, loader
         sampler = torch.utils.data.WeightedRandomSampler(
@@ -101,7 +102,7 @@ def get_dataloaders(args: argparse.Namespace):
         drop_last=False,
     )
 
-    print("Num classes (k) = ", len(classes), classes[:5], "etc.", flush=True)
+    log.info(f"Num classes (k) = {len(classes)} {classes[:5],} etc.")
 
     return (
         train_loader,
@@ -113,7 +114,7 @@ def get_dataloaders(args: argparse.Namespace):
     )
 
 
-def get_datasets(args: argparse.Namespace):
+def get_datasets(log: Log, args: argparse.Namespace):
     """
     Load the proper dataset based on the parsed arguments
     """
@@ -160,15 +161,9 @@ def get_datasets(args: argparse.Namespace):
             torchvision.datasets.ImageFolder(train_dir, transform=transform_no_augment),
             indices=test_indices,
         )
-        print(
-            "Samples in train_set:",
-            len(indices),
-            "of which",
-            len(train_indices),
-            "for training and ",
-            len(test_indices),
-            "for testing.",
-            flush=True,
+        log.info(
+            f"Samples in train_set: {len(indices)} of which {len(train_indices)} "
+            f"for training and {len(test_indices)} for testing."
         )
     else:
         test_set = torchvision.datasets.ImageFolder(
@@ -343,7 +338,7 @@ class TwoAugSupervisedDataset(torch.utils.data.Dataset):
         return len(self.dataset)
 
 
-# function copied fromhttps://pytorch.org/vision/stable/_modules/torchvision/transforms/autoaugment.html#TrivialAugmentWide (v0.12) and adapted  # noqa
+# function copied from https://pytorch.org/vision/stable/_modules/torchvision/transforms/autoaugment.html#TrivialAugmentWide (v0.12) and adapted  # noqa
 class TrivialAugmentWideNoColor(transforms.TrivialAugmentWide):
     def _augmentation_space(self, num_bins: int) -> Dict[str, Tuple[Tensor, bool]]:
         return {

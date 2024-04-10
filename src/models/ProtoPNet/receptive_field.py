@@ -44,7 +44,7 @@ def compute_layer_rf_info(
 
 
 def compute_rf_protoL_at_spatial_location(
-    img_size, height_index, width_index, protoL_rf_info
+    img_shape: tuple[int, int], height_index, width_index, protoL_rf_info
 ):
     n = protoL_rf_info[0]
     j = protoL_rf_info[1]
@@ -57,10 +57,10 @@ def compute_rf_protoL_at_spatial_location(
     center_w = start + (width_index * j)
 
     rf_start_height_index = max(int(center_h - (r / 2)), 0)
-    rf_end_height_index = min(int(center_h + (r / 2)), img_size)
+    rf_end_height_index = min(int(center_h + (r / 2)), img_shape[0])
 
     rf_start_width_index = max(int(center_w - (r / 2)), 0)
-    rf_end_width_index = min(int(center_w + (r / 2)), img_size)
+    rf_end_width_index = min(int(center_w + (r / 2)), img_shape[1])
 
     return [
         rf_start_height_index,
@@ -80,14 +80,16 @@ def compute_rf_prototype(img_size, prototype_patch_index, protoL_rf_info):
     return [img_index, rf_indices[0], rf_indices[1], rf_indices[2], rf_indices[3]]
 
 
-def compute_rf_prototypes(img_size, prototype_patch_indices, protoL_rf_info):
+def compute_rf_prototypes(
+    img_shape: tuple[int, int], prototype_patch_indices, protoL_rf_info
+):
     rf_prototypes = []
     for prototype_patch_index in prototype_patch_indices:
         img_index = prototype_patch_index[0]
         height_index = prototype_patch_index[1]
         width_index = prototype_patch_index[2]
         rf_indices = compute_rf_protoL_at_spatial_location(
-            img_size, height_index, width_index, protoL_rf_info
+            img_shape, height_index, width_index, protoL_rf_info
         )
         rf_prototypes.append(
             [img_index, rf_indices[0], rf_indices[1], rf_indices[2], rf_indices[3]]
@@ -95,8 +97,8 @@ def compute_rf_prototypes(img_size, prototype_patch_indices, protoL_rf_info):
     return rf_prototypes
 
 
-def compute_proto_layer_rf_info(img_size, cfg, prototype_kernel_size):
-    rf_info = [img_size, 1, 1, 0.5]
+def compute_proto_layer_rf_info(img_shape: tuple[int, int], cfg, prototype_kernel_size):
+    rf_info = [img_shape[0], 1, 1, 0.5]
 
     for v in cfg:
         if v == "M":
@@ -125,12 +127,16 @@ def compute_proto_layer_rf_info(img_size, cfg, prototype_kernel_size):
 
 
 def compute_proto_layer_rf_info_v2(
-    img_size, layer_filter_sizes, layer_strides, layer_paddings, prototype_kernel_size
+    img_shape: tuple[int, int],
+    layer_filter_sizes,
+    layer_strides,
+    layer_paddings,
+    prototype_kernel_size,
 ):
     assert len(layer_filter_sizes) == len(layer_strides)
     assert len(layer_filter_sizes) == len(layer_paddings)
 
-    rf_info = [img_size, 1, 1, 0.5]
+    rf_info = [img_shape[0], 1, 1, 0.5]
 
     for i in range(len(layer_filter_sizes)):
         filter_size = layer_filter_sizes[i]

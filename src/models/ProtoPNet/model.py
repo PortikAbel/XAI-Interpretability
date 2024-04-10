@@ -1,3 +1,5 @@
+from collections import namedtuple
+
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -5,21 +7,25 @@ import torch.nn.functional as F
 from models.features import base_architecture_to_features
 from models.ProtoPNet.receptive_field import compute_proto_layer_rf_info_v2
 
+AdditionalOuts = namedtuple(
+    "AdditionalOuts", ["min_distances", "distances", "min_indices"]
+)
+
 
 class PPNet(nn.Module):
     def __init__(
         self,
-        features,
-        img_size,
-        prototype_shape,
+        features: nn.Module,
+        img_shape: tuple[int, int],
+        prototype_shape: tuple[int, int, int, int],
         proto_layer_rf_info,
-        num_classes,
-        init_weights=True,
-        prototype_activation_function="log",
-        add_on_layers_type="bottleneck",
+        num_classes: int,
+        init_weights: bool = True,
+        prototype_activation_function: str = "log",
+        add_on_layers_type: str = "bottleneck",
     ):
         super(PPNet, self).__init__()
-        self.img_size = img_size
+        self.img_shape = img_shape
         self.prototype_shape = prototype_shape
         self.num_prototypes = prototype_shape[0]
         self.num_classes = num_classes
@@ -123,7 +129,7 @@ class PPNet(nn.Module):
         if init_weights:
             self._initialize_weights()
 
-    def conv_features(self, x):
+    def conv_features(self, x: torch.Tensor):
         """
         the feature input to prototype layer
         """
@@ -158,27 +164,47 @@ class PPNet(nn.Module):
 
         return distances
 
-    def _l2_convolution(self, x):
+    def _l2_convolution(self, x: torch.Tensor, detach_prototypes: bool = False):
         """
         apply self.prototype_vectors as l2-convolution filters on input x
         """
         x2 = x**2
         x2_patch_sum = F.conv2d(input=x2, weight=self.ones)
 
-        p2 = self.prototype_vectors**2
+        p = (
+            self.prototype_vectors.detach()
+            if detach_prototypes
+            else self.prototype_vectors
+        )
+        p2 = p**2
         p2 = torch.sum(p2, dim=(1, 2, 3))
         # p2 is a vector of shape (num_prototypes,)
         # then we reshape it to (num_prototypes, 1, 1)
         p2_reshape = p2.view(-1, 1, 1)
 
-        xp = F.conv2d(input=x, weight=self.prototype_vectors)
+        xp = F.conv2d(input=x, weight=p)
         intermediate_result = -2 * xp + p2_reshape  # use broadcast
         # x2_patch_sum and intermediate_result are of the same shape
         distances = F.relu(x2_patch_sum + intermediate_result)
 
         return distances
 
-    def prototype_distances(self, x):
+    def prototype_min_distances(self, x: torch.Tensor, detach_prototypes: bool = False):
+        """
+        x is the raw input
+        """
+        conv_features = self.conv_features(x)
+        distances = self._l2_convolution(conv_features, detach_prototypes)
+        # global min pooling
+        min_distances, min_indices = F.max_pool2d(
+            -distances,
+            kernel_size=(distances.size()[2], distances.size()[3]),
+            return_indices=True,
+        )
+        min_distances = -min_distances.view(-1, self.num_prototypes)
+        return min_distances, distances, min_indices
+
+    def prototype_distances(self, x: torch.Tensor):
         """
         x is the raw input
         """
@@ -186,7 +212,7 @@ class PPNet(nn.Module):
         distances = self._l2_convolution(conv_features)
         return distances
 
-    def distance_2_similarity(self, distances):
+    def distance_2_similarity(self, distances: torch.Tensor):
         if self.prototype_activation_function == "log":
             return torch.log((distances + 1) / (distances + self.epsilon))
         elif self.prototype_activation_function == "linear":
@@ -194,22 +220,17 @@ class PPNet(nn.Module):
         else:
             return self.prototype_activation_function(distances)
 
-    def forward(self, x):
-        distances = self.prototype_distances(x)
-        """
-        we cannot refactor the lines below for similarity scores
-        because we need to return min_distances
-        """
-        # global min pooling
-        min_distances = -F.max_pool2d(
-            -distances, kernel_size=(distances.size()[2], distances.size()[3])
-        )
-        min_distances = min_distances.view(-1, self.num_prototypes)
+    def forward(self, x: torch.Tensor) -> tuple[torch.Tensor, AdditionalOuts]:
+        min_distances, distances, min_indices = self.prototype_min_distances(x)
         prototype_activations = self.distance_2_similarity(min_distances)
         logits = self.last_layer(prototype_activations)
-        return logits, min_distances
+        return logits, AdditionalOuts(
+            min_distances=min_distances,
+            distances=distances,
+            min_indices=min_indices,
+        )
 
-    def push_forward(self, x):
+    def push_forward(self, x: torch.Tensor):
         """this method is needed for the pushing operation"""
         conv_output = self.conv_features(x)
         distances = self._l2_convolution(conv_output)
@@ -264,7 +285,7 @@ class PPNet(nn.Module):
 
         return rep.format(
             self.features,
-            self.img_size,
+            self.img_shape,
             self.prototype_shape,
             self.proto_layer_rf_info,
             self.num_classes,
@@ -302,18 +323,18 @@ class PPNet(nn.Module):
 
 
 def construct_PPNet(
-    base_architecture,
-    pretrained=True,
-    img_size=224,
-    prototype_shape=(2000, 512, 1, 1),
-    num_classes=200,
-    prototype_activation_function="log",
-    add_on_layers_type="bottleneck",
+    base_architecture: str,
+    pretrained: bool = True,
+    img_shape: tuple[int, int] = (224, 224),
+    prototype_shape: tuple[int, int, int, int] = (2000, 512, 1, 1),
+    num_classes: int = 200,
+    prototype_activation_function: str = "log",
+    add_on_layers_type: str = "bottleneck",
 ):
     features = base_architecture_to_features[base_architecture](pretrained=pretrained)
     layer_filter_sizes, layer_strides, layer_paddings = features.conv_info()
     proto_layer_rf_info = compute_proto_layer_rf_info_v2(
-        img_size=img_size,
+        img_shape=img_shape,
         layer_filter_sizes=layer_filter_sizes,
         layer_strides=layer_strides,
         layer_paddings=layer_paddings,
@@ -321,7 +342,7 @@ def construct_PPNet(
     )
     return PPNet(
         features=features,
-        img_size=img_size,
+        img_shape=img_shape,
         prototype_shape=prototype_shape,
         proto_layer_rf_info=proto_layer_rf_info,
         num_classes=num_classes,

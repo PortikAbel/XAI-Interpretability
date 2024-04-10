@@ -1,7 +1,7 @@
-from tqdm import tqdm
 from scipy import stats
-
 from torch.utils.data import DataLoader
+from tqdm import tqdm
+
 from data.funny_birds import FunnyBirds
 
 

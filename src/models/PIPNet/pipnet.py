@@ -1,7 +1,7 @@
 import argparse
 import random
-import numpy as np
 
+import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -89,7 +89,7 @@ class PIPNet(nn.Module):
                     self.param_groups["to_freeze"].append(param)
                 # CUDA MEMORY ISSUES?
                 # COMMENT LINE 202-203 AND USE THE FOLLOWING LINES INSTEAD
-                elif 'features.5' in name or 'features.4' in name:
+                elif "features.5" in name or "features.4" in name:
                     self.param_groups["backbone"].append(param)
                 else:
                     param.requires_grad = False

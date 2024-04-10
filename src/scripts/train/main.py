@@ -1,6 +1,6 @@
 import argparse
 import random
-import sys
+import warnings
 
 import numpy as np
 import torch
@@ -10,6 +10,9 @@ from utils.log import Log
 parser = argparse.ArgumentParser(description="Train a model")
 parser.add_argument(
     "--model", type=str, default="PIPNet", help="name of the explainable model to train"
+)
+parser.add_argument(
+    "--enable_console", action="store_true", help="Enable console output"
 )
 
 
@@ -29,8 +32,13 @@ match args.model:
 model_args = model_args_parser.get_args()
 
 # Create a logger
-log = Log(args.log_dir)
-print("Log dir: ", args.log_dir, flush=True)
+log = Log(model_args.log_dir, __name__, not args.enable_console)
+log.info(f"Log dir: {model_args.log_dir}")
+
+warnings.showwarning = lambda message, *_: log.warning(
+    f"{type(message).__name__}: {message}"
+)
+
 # Log the run arguments
 model_args_parser.save_args(log.metadata_dir)
 
@@ -39,16 +47,8 @@ torch.cuda.manual_seed_all(model_args.seed)
 random.seed(model_args.seed)
 np.random.seed(model_args.seed)
 
-standard_output_file = args.log_dir / "out.txt"
-error_output_file = args.log_dir / "error.txt"
-
-sys.stdout.close()
-sys.stderr.close()
-sys.stdout = standard_output_file.open(mode="w")
-sys.stderr = error_output_file.open(mode="w")
-
-train_model(log, model_args)
-
-# close output files
-sys.stdout.close()
-sys.stderr.close()
+try:
+    train_model(log, model_args)
+except Exception as e:
+    log.exception(e)
+log.close()

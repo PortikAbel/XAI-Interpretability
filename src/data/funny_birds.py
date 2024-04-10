@@ -3,12 +3,12 @@ import itertools
 import json
 import random
 from base64 import decodebytes
+from pathlib import Path
 
 import requests
 import torch
 from PIL import Image, ImageDraw
-from pathlib import Path
-from torchvision import transforms, datasets
+from torchvision import datasets, transforms
 
 
 class RandomForeground(torch.nn.Module):

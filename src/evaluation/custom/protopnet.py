@@ -65,7 +65,7 @@ def main():
     model = model_ppnet.construct_PPNet(
         base_architecture=base_architecture,
         pretrained=True,
-        img_size=img_size,
+        img_shape=img_size,
         prototype_shape=prototype_shape,
         num_classes=num_classes,
         prototype_activation_function=prototype_activation_function,

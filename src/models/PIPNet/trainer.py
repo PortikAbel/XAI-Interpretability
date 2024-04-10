@@ -28,10 +28,9 @@ def train_model(log, args=None):
     tensorboard_writer = SummaryWriter(log_dir=args.log_dir)
 
     # Log which device was actually used
-    print(
+    log.info(
         f"Device used: {args.device} "
         f"{f'with id {args.device_ids}' if len(args.device_ids) > 0 else ''}",
-        flush=True,
     )
 
     # Obtain the dataloaders
@@ -42,7 +41,7 @@ def train_model(log, args=None):
         test_loader,
         test_project_loader,
         classes,
-    ) = get_dataloaders(args)
+    ) = get_dataloaders(log, args)
 
     if len(classes) <= 20:
         if args.validation_size == 0.0:
@@ -646,4 +645,4 @@ def train_model(log, args=None):
                     )
 
     print("Done!", flush=True)
-    log.close()
+    tensorboard_writer.close()

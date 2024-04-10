@@ -1,5 +1,5 @@
-from tqdm import tqdm
 from torch.utils.data import DataLoader
+from tqdm import tqdm
 
 from data.funny_birds import FunnyBirds
 

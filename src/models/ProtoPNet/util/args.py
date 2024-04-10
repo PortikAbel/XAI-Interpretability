@@ -11,7 +11,7 @@ def define_parser():
     parser = argparse.ArgumentParser(
         "Train ProtoPNet",
         description="Necessary parameters to train a ProtoPNet",
-        parents=[GeneralModelParametersParser("ProtoPNet", add_help=False)],
+        parents=[GeneralModelParametersParser(add_help=False)],
     )
 
     net_group = parser.add_mutually_exclusive_group()
@@ -72,13 +72,6 @@ def define_parser():
         "Recommended to train at least until the align loss < 1",
     )
     net_parameter_group.add_argument(
-        "--freeze_epochs",
-        type=np.uint16,
-        default=10,
-        help="Number of epochs where pretrained features_net will be frozen while "
-        "training classification layer (and last layer(s) of backbone)",
-    )
-    net_parameter_group.add_argument(
         "--epochs_finetune",
         type=np.uint16,
         default=3,
@@ -118,7 +111,7 @@ def define_parser():
         help="Activation function for the prototypes.",
     )
     net_parameter_group.add_argument(
-        "--add_on_layer_type",
+        "--add_on_layers_type",
         type=str,
         default="regular",
         choices=["regular", "bottleneck"],
@@ -271,12 +264,6 @@ def define_parser():
         "Specifies the directory where the log files and other outputs should be saved",
     )
     log_group.add_argument(
-        "--dir_for_saving_images",
-        type=str,
-        default="visualization_results",
-        help="Directory for saving the prototypes and explanations",
-    )
-    log_group.add_argument(
         "--prototype_img_filename_prefix",
         type=str,
         default="prototype-img",
@@ -332,6 +319,7 @@ class ProtoPNetArgumentParser(ModelArgumentParser):
         :return: specified arguments in the command line
         """
         super().get_args()
+        GeneralModelParametersParser.validate_data(cls._args, "ProtoPNet")
 
         cls._args.prototype_shape = (
             cls._args.n_prototypes_per_class * cls._args.num_classes,
@@ -341,14 +329,11 @@ class ProtoPNetArgumentParser(ModelArgumentParser):
         )
 
         cls._args.n_epochs = cls._args.epochs + cls._args.epochs_warm
-        if cls._args.push_start <= cls._args.epochs_warm:
-            raise ValueError("Push start should be after the warm phase.")
         cls._args.push_epochs = set(
             np.arange(cls._args.push_start, cls._args.epochs, cls._args.push_interval)
-            + cls._args.epochs_warm
         )
         cls._args.push_epochs.add(
-            cls._args.n_epochs
+            cls._args.epochs
         )  # add the last epoch to the push epochs
 
         cls._args.warm_optimizer_lrs = {

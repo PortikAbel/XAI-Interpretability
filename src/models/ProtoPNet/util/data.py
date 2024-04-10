@@ -11,9 +11,10 @@ from albumentations.pytorch import ToTensorV2
 from sklearn.model_selection import train_test_split
 
 from data.config import DATASETS
+from utils.log import Log
 
 
-def get_dataloaders(args: argparse.Namespace):
+def get_dataloaders(log: Log, args: argparse.Namespace):
     """
     Get data loaders
     """
@@ -25,10 +26,10 @@ def get_dataloaders(args: argparse.Namespace):
         classes,
         train_indices,
         targets,
-    ) = get_datasets(args)
+    ) = get_datasets(log, args)
 
     # Determine if GPU should be used
-    cuda = not args.disable_cuda and torch.cuda.is_available()
+    cuda = not args.disable_gpu and torch.cuda.is_available()
     sampler = None
     to_shuffle_train_set = True
 
@@ -46,7 +47,7 @@ def get_dataloaders(args: argparse.Namespace):
             ]
         )
         weight = 1.0 / class_sample_count.float()
-        print("Weights for weighted sampler: ", weight, flush=True)
+        log.info(f"Weights for weighted sampler: {weight}")
         samples_weight = torch.tensor([weight[t] for t in targets[train_indices]])
         # Create sampler, dataset, loader
         sampler = torch.utils.data.WeightedRandomSampler(
@@ -86,7 +87,7 @@ def get_dataloaders(args: argparse.Namespace):
         drop_last=False,
     )
 
-    print("Num classes (k) = ", len(classes), classes[:5], "etc.", flush=True)
+    log.info(f"Num classes (k) = {len(classes)}, {classes[:5]}, etc.")
 
     return (
         train_loader,
@@ -96,7 +97,7 @@ def get_dataloaders(args: argparse.Namespace):
     )
 
 
-def get_datasets(args: argparse.Namespace):
+def get_datasets(log: Log, args: argparse.Namespace):
     """
     Load the proper dataset based on the parsed arguments
     """
@@ -134,27 +135,28 @@ def get_datasets(args: argparse.Namespace):
             random_state=args.seed,
         )
         test_set = torch.utils.data.Subset(
-            torchvision.datasets.ImageFolder(train_dir, transform=transform_validation),
+            torchvision.datasets.ImageFolder(
+                train_dir, transform=Transforms(transform_validation)
+            ),
             indices=test_indices,
         )
-        print(
+        log.info(
             f"Samples in train_set: {len(indices)} of which {len(train_indices)} for "
             f"training and {len(test_indices)} for testing.",
-            flush=True,
         )
     else:
         test_set = torchvision.datasets.ImageFolder(
-            test_dir, transform=transform_validation
+            test_dir, transform=Transforms(transform_validation)
         )
 
     train_set = datasets.ImageFolder(
         train_dir,
-        transform_train,
+        transform=Transforms(transform_train),
     )
 
     push_set = torchvision.datasets.ImageFolder(
         train_dir_projection,
-        transform=transform_no_augment,
+        transform=Transforms(transform_push),
     )
 
     return (
@@ -171,14 +173,17 @@ def get_transforms(args: argparse.Namespace):
     normalize = A.Normalize(mean=args.mean, std=args.std, max_pixel_value=1.0, p=1.0)
     base_transform = A.Compose(
         [
+            A.ToFloat(max_value=256),
             A.Resize(height=args.img_shape[0], width=args.img_shape[1]),
             ToTensorV2(),
         ]
     )
     transform_no_augment = A.Compose(
         [
-            base_transform,
+            A.ToFloat(max_value=256),
+            A.Resize(height=args.img_shape[0], width=args.img_shape[1]),
             normalize,
+            ToTensorV2(),
         ]
     )
 
@@ -186,6 +191,7 @@ def get_transforms(args: argparse.Namespace):
         transform_train = A.Compose(
             [
                 A.ToFloat(max_value=256),
+                A.Resize(height=args.img_shape[0], width=args.img_shape[1]),
                 A.RandomBrightnessContrast(),
                 A.ShiftScaleRotate(
                     shift_limit=0.0625, scale_limit=0.1, rotate_limit=20, p=0.5
@@ -196,16 +202,17 @@ def get_transforms(args: argparse.Namespace):
             ]
         )
 
-        transform_validation = A.Compose(
+        transform_test = A.Compose(
             [
                 A.ToFloat(max_value=256),
+                A.Resize(height=args.img_shape[0], width=args.img_shape[1]),
                 normalize,
                 ToTensorV2(),
             ]
         )
     else:
         transform_train = transform_no_augment
-        transform_validation = transform_no_augment
+        transform_test = transform_no_augment
 
     transform_push = base_transform
 
@@ -213,7 +220,7 @@ def get_transforms(args: argparse.Namespace):
         transform_no_augment,
         transform_train,
         transform_push,
-        transform_validation,
+        transform_test,
     )
 
 
