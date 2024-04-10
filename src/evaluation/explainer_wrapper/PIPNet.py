@@ -1,9 +1,9 @@
 import cv2
-import numpy as np
 import torch
 import torch.nn as nn
 
 from evaluation.explainer_wrapper.base import AbstractAttributionExplainer
+from models.ProtoPNet.util.helpers import find_high_activation_crop
 
 
 # this should in the end be the final explainer
@@ -15,37 +15,17 @@ class PIPNetExplainer(AbstractAttributionExplainer):
         model: PyTorch model.
     """
 
-    def __init__(self, model):
+    def __init__(self, model, explainer):
         """
         A wrapper for PIPNet explanations.
         Args:
             model: PyTorch neural network model
         """
+        super().__init__(explainer)
         self.model = model
         self.dilation = nn.MaxPool2d(1, stride=1, padding=0)
 
-    def find_high_activation_crop(self, activation_map, percentile=95):
-        threshold = np.percentile(activation_map, percentile)
-        mask = np.ones(activation_map.shape)
-        mask[activation_map < threshold] = 0
-        lower_y, upper_y, lower_x, upper_x = 0, 0, 0, 0
-        for i in range(mask.shape[0]):
-            if np.amax(mask[i]) > 0.5:
-                lower_y = i
-                break
-        for i in reversed(range(mask.shape[0])):
-            if np.amax(mask[i]) > 0.5:
-                upper_y = i
-                break
-        for j in range(mask.shape[1]):
-            if np.amax(mask[:, j]) > 0.5:
-                lower_x = j
-                break
-        for j in reversed(range(mask.shape[1])):
-            if np.amax(mask[:, j]) > 0.5:
-                upper_x = j
-                break
-        return lower_y, upper_y, lower_x, upper_x
+    find_high_activation_crop = find_high_activation_crop
 
     # for evaluating pipnet explainations are masks
     def explain(self, image, target):

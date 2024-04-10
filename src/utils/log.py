@@ -1,9 +1,7 @@
-import argparse
 from pathlib import Path
 
 
 class Log:
-
     """
     Object for managing the log directory
     """
