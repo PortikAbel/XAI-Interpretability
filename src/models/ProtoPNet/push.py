@@ -26,6 +26,7 @@ def push_prototypes(
     proto_bound_boxes_filename_prefix=None,
     save_prototype_class_identity=True,  # which class the prototype image comes from
     prototype_activation_function_in_np=None,
+    tensorboard_writer=None,
 ):
     prototype_network_parallel.eval()
     log.info("\tpush")
