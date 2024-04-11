@@ -284,18 +284,15 @@ def calculate_loss(
                     tensorboard_writer.add_scalar(
                         "Loss/train/LC", class_loss.item(), iteration
                     )
-                    if t_weight > 0:
-                        tensorboard_writer.add_scalar(
-                            "Loss/train/LT", tanh_loss.item(), iteration
-                        )
-                    if unif_weight > 0:
-                        tensorboard_writer.add_scalar(
-                            "Loss/train/LU", uni_loss.item(), iteration
-                        )
-                    if var_weigth > 0:
-                        tensorboard_writer.add_scalar(
-                            "Loss/train/LV", var_loss.item(), iteration
-                        )
+                    tensorboard_writer.add_scalar(
+                        "Loss/train/LT", tanh_loss.item(), iteration
+                    )
+                    tensorboard_writer.add_scalar(
+                        "Loss/train/LU", uni_loss.item(), iteration
+                    )
+                    tensorboard_writer.add_scalar(
+                        "Loss/train/LV", var_loss.item(), iteration
+                    )
                     tensorboard_writer.add_scalar("Acc/train", acc, iteration)
 
     return loss, acc
