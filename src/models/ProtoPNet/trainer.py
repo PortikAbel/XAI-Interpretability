@@ -131,7 +131,7 @@ def train_model(log, args):
             model_name=f"{epoch}_no-push_",
             class_specific=class_specific,
             log=log,
-            tensorboard_writer=tensorboard_writer
+            tensorboard_writer=tensorboard_writer,
         )
         epoch += 1
 
@@ -179,14 +179,25 @@ def train_model(log, args):
                         model_name=f"{epoch}_push_{i}_",
                         class_specific=class_specific,
                         log=log,
-                        tensorboard_writer=tensorboard_writer
+                        tensorboard_writer=tensorboard_writer,
                     )
                     epoch += 1
     tensorboard_writer.close()
 
 
-def train_protopnet(args: argparse.Namespace, epoch: int, ppnet_multi: nn.DataParallel, test_loader: torch.utils.data.DataLoader,
-                    model_name: str, class_specific: bool, log: Log, tensorboard_writer: SummaryWriter, test_only: bool = False, optimizer: torch.optim.Optimizer = None, train_loader: torch.utils.data.DataLoader = None):
+def train_protopnet(
+    args: argparse.Namespace,
+    epoch: int,
+    ppnet_multi: nn.DataParallel,
+    test_loader: torch.utils.data.DataLoader,
+    model_name: str,
+    class_specific: bool,
+    log: Log,
+    tensorboard_writer: SummaryWriter,
+    test_only: bool = False,
+    optimizer: torch.optim.Optimizer = None,
+    train_loader: torch.utils.data.DataLoader = None,
+):
     if not test_only:
         _ = tnt.train(
             args=args,

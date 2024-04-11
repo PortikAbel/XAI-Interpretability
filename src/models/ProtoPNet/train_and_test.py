@@ -63,21 +63,23 @@ def _train_or_test(
             # so no need to call .forward
             output, additional_out = model(input_)
 
-            loss, cross_entropy, cluster_cost, l1, l2, separation_cost = compute_loss_components(
-                input_=input_,
-                target_=target_,
-                label=label,
-                model=model,
-                optimizer=optimizer,
-                output=output,
-                additional_out=additional_out,
-                args=args,
-                class_specific=class_specific,
-                use_l1_mask=use_l1_mask,
-                tensorboard_writer=tensorboard_writer,
-                step=total_steps + current_step,
-                is_train=is_train,
-                is_pretrain=is_pretrain,
+            loss, cross_entropy, cluster_cost, l1, l2, separation_cost = (
+                compute_loss_components(
+                    input_=input_,
+                    target_=target_,
+                    label=label,
+                    model=model,
+                    optimizer=optimizer,
+                    output=output,
+                    additional_out=additional_out,
+                    args=args,
+                    class_specific=class_specific,
+                    use_l1_mask=use_l1_mask,
+                    tensorboard_writer=tensorboard_writer,
+                    step=total_steps + current_step,
+                    is_train=is_train,
+                    is_pretrain=is_pretrain,
+                )
             )
 
             # evaluation statistics
@@ -122,9 +124,22 @@ def _train_or_test(
     return n_correct / n_examples
 
 
-def compute_loss_components(input_, target_, label, model, optimizer, output, additional_out, args,
-                            class_specific, use_l1_mask, tensorboard_writer,
-                            step, is_train, is_pretrain):
+def compute_loss_components(
+    input_,
+    target_,
+    label,
+    model,
+    optimizer,
+    output,
+    additional_out,
+    args,
+    class_specific,
+    use_l1_mask,
+    tensorboard_writer,
+    step,
+    is_train,
+    is_pretrain,
+):
     _, predicted = torch.max(output.data, 1)
     n_correct = (predicted == target_).sum().item()
     acc = n_correct / len(predicted)
@@ -142,9 +157,9 @@ def compute_loss_components(input_, target_, label, model, optimizer, output, ad
     separation_cost = 0.0
     if class_specific:
         max_dist = (
-                model.module.prototype_shape[1]
-                * model.module.prototype_shape[2]
-                * model.module.prototype_shape[3]
+            model.module.prototype_shape[1]
+            * model.module.prototype_shape[2]
+            * model.module.prototype_shape[3]
         )
 
         # prototypes_of_correct_class is a tensor
@@ -175,24 +190,21 @@ def compute_loss_components(input_, target_, label, model, optimizer, output, ad
             )
         elif args.separation_type == "avg":
             min_distances_detached_prototype_vectors = (
-                model.module.prototype_min_distances(
-                    input_, detach_prototypes=True
-                )[0]
+                model.module.prototype_min_distances(input_, detach_prototypes=True)[0]
             )
             # calculate avg cluster cost
             avg_separation_cost = torch.sum(
-                min_distances_detached_prototype_vectors
-                * prototypes_of_wrong_class,
+                min_distances_detached_prototype_vectors * prototypes_of_wrong_class,
                 dim=1,
             ) / torch.sum(prototypes_of_wrong_class, dim=1)
             avg_separation_cost = torch.mean(avg_separation_cost)
 
             l2 = (
-                    torch.mm(
-                        model.module.prototype_vectors[:, :, 0, 0],
-                        model.module.prototype_vectors[:, :, 0, 0].t(),
-                    )
-                    - torch.eye(args.prototype_shape[0]).cuda()
+                torch.mm(
+                    model.module.prototype_vectors[:, :, 0, 0],
+                    model.module.prototype_vectors[:, :, 0, 0].t(),
+                )
+                - torch.eye(args.prototype_shape[0]).cuda()
             ).norm(p=2)
 
             separation_cost = avg_separation_cost
@@ -212,18 +224,17 @@ def compute_loss_components(input_, target_, label, model, optimizer, output, ad
                 all_distances.size(0), all_distances.size(1), -1
             )
             distance_at_anchor = all_distances[
-                                 torch.arange(0, all_distances.size(0),
-                                              dtype=torch.long),
-                                 :,
-                                 anchor_index,
-                                 ]
+                torch.arange(0, all_distances.size(0), dtype=torch.long),
+                :,
+                anchor_index,
+            ]
 
             # For each non-target prototype
             # compute difference compared to the closest target prototype
             # d(a, p) - d(a, n) term from TripletMarginLoss
             distance_pos_neg = (
-                                       min_distance_target - distance_at_anchor
-                               ) * prototypes_of_wrong_class
+                min_distance_target - distance_at_anchor
+            ) * prototypes_of_wrong_class
             # Separation cost is the margin loss
             # max(d(a, p) - d(a, n) + margin, 0)
             separation_cost = torch.mean(
@@ -254,18 +265,17 @@ def compute_loss_components(input_, target_, label, model, optimizer, output, ad
     if is_train:
         if class_specific:
             loss = (
-                    args.coefs["crs_ent"] * cross_entropy
-                    + args.coefs["clst"] * cluster_cost
-                    + args.coefs["sep"] * separation_cost
-                    + (args.coefs[
-                           "l2"] * l2 if args.separation_type == "avg" else 0)
-                    + args.coefs["l1"] * l1
+                args.coefs["crs_ent"] * cross_entropy
+                + args.coefs["clst"] * cluster_cost
+                + args.coefs["sep"] * separation_cost
+                + (args.coefs["l2"] * l2 if args.separation_type == "avg" else 0)
+                + args.coefs["l1"] * l1
             )
         else:
             loss = (
-                    args.coefs["crs_ent"] * cross_entropy
-                    + args.coefs["clst"] * cluster_cost
-                    + args.coefs["l1"] * l1
+                args.coefs["crs_ent"] * cross_entropy
+                + args.coefs["clst"] * cluster_cost
+                + args.coefs["l1"] * l1
             )
         optimizer.zero_grad()
         loss.backward()
@@ -280,9 +290,7 @@ def compute_loss_components(input_, target_, label, model, optimizer, output, ad
         else:
             phase = "test"
 
-        tensorboard_writer.add_scalar(
-            f"Loss/{phase}/loss", loss.item(), step
-        )
+        tensorboard_writer.add_scalar(f"Loss/{phase}/loss", loss.item(), step)
         tensorboard_writer.add_scalar(
             f"Loss/{phase}/cross entropy", cross_entropy.item(), step
         )
@@ -292,15 +300,9 @@ def compute_loss_components(input_, target_, label, model, optimizer, output, ad
         tensorboard_writer.add_scalar(
             f"Loss/{phase}/separation cost", separation_cost.item(), step
         )
-        tensorboard_writer.add_scalar(
-            f"Loss/{phase}/l1", l1.item(), step
-        )
-        tensorboard_writer.add_scalar(
-            f"Loss/{phase}/l2", l2.item(), step
-        )
-        tensorboard_writer.add_scalar(
-            f"Loss/{phase}/Accuracy", acc, step
-        )
+        tensorboard_writer.add_scalar(f"Loss/{phase}/l1", l1.item(), step)
+        tensorboard_writer.add_scalar(f"Loss/{phase}/l2", l2.item(), step)
+        tensorboard_writer.add_scalar(f"Loss/{phase}/Accuracy", acc, step)
 
     return loss, cross_entropy, cluster_cost, l1, l2, separation_cost
 
