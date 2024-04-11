@@ -316,7 +316,7 @@ def get_args() -> argparse.Namespace:
     if not args.tanh_loss and not args.unif_loss and not args.variance_loss:
         args.tanh_loss = True
 
-    args.log_dir = Path(get_env("PROJECT_ROOT")) / "models" / "PIPNet" / "runs"
+    args.log_dir = Path(get_env("LOG_ROOT")) / "pipnet"
     args.log_dir = args.log_dir / args.net / dt.now().strftime("%Y-%m-%d_%H-%M-%S")
     args.log_dir = args.log_dir.resolve()
     args.log_dir.mkdir(parents=True, exist_ok=True)
