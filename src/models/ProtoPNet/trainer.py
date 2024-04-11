@@ -1,7 +1,9 @@
+import argparse
 from functools import partial
 
-import numpy as np
 import torch
+import torch.utils.data
+from torch import nn
 from torch.utils.tensorboard import SummaryWriter
 
 from models.ProtoPNet import model, push
@@ -9,6 +11,7 @@ from models.ProtoPNet import train_and_test as tnt
 from models.ProtoPNet.util import save
 from models.ProtoPNet.util.data import get_dataloaders
 from models.ProtoPNet.util.preprocess import preprocess
+from utils.log import Log
 
 
 def train_model(log, args):
@@ -106,70 +109,33 @@ def train_model(log, args):
     # train the model
     log.info("start training")
 
-    if args.epochs_warm > 0:
-        tnt.warm_only(model=ppnet_multi, log=log)
-    for epoch in np.arange(args.epochs_warm) + 1:
+    epoch = 1
+    while epoch <= args.n_epochs:
         log.info(f"warm epoch: \t{epoch}")
+        if epoch < args.epochs_warm:
+            tnt.warm_only(model=ppnet_multi, log=log)
+            optimizer = warm_optimizer
+        else:
+            tnt.joint(model=ppnet_multi, log=log)
+            if epoch > args.epochs_warm:
+                joint_lr_scheduler.step()
+            optimizer = joint_optimizer
 
-        _ = tnt.train(
+        train_protopnet(
             args=args,
-            model=ppnet_multi,
-            dataloader=train_loader,
-            optimizer=warm_optimizer,
-            class_specific=class_specific,
-            log=log,
-            tensorboard_writer=tensorboard_writer,
-        )
-        accu = tnt.test(
-            args=args,
-            model=ppnet_multi,
-            dataloader=test_loader,
-            class_specific=class_specific,
-            log=log,
-            tensorboard_writer=tensorboard_writer,
-        )
-        save.save_model_w_condition(
-            model=ppnet,
-            model_dir=log.checkpoint_dir,
-            model_name=f"{epoch}_warm_",
-            accu=accu,
-            target_accu=0.60,
-            log=log,
-        )
-
-    for epoch in np.arange(args.epochs) + 1:
-        tnt.joint(model=ppnet_multi, log=log)
-        log.info(f"epoch: \t{epoch}")
-        if epoch > 1:
-            joint_lr_scheduler.step()
-        _ = tnt.train(
-            args=args,
-            model=ppnet_multi,
-            dataloader=train_loader,
-            optimizer=joint_optimizer,
-            class_specific=class_specific,
-            log=log,
-            tensorboard_writer=tensorboard_writer,
-        )
-
-        accu = tnt.test(
-            args=args,
-            model=ppnet_multi,
-            dataloader=test_loader,
-            class_specific=class_specific,
-            log=log,
-            tensorboard_writer=tensorboard_writer,
-        )
-        save.save_model_w_condition(
-            model=ppnet,
-            model_dir=log.checkpoint_dir,
+            epoch=epoch,
+            ppnet_multi=ppnet_multi,
+            optimizer=optimizer,
+            train_loader=train_loader,
+            test_loader=test_loader,
             model_name=f"{epoch}_no-push_",
-            accu=accu,
-            target_accu=0.60,
+            class_specific=class_specific,
             log=log,
+            tensorboard_writer=tensorboard_writer
         )
+        epoch += 1
 
-        if epoch >= args.push_start and epoch in args.push_epochs:
+        if epoch in args.push_epochs:
             push.push_prototypes(
                 train_push_loader,  # pytorch dataloader (must be un-normalized in [0,1])
                 prototype_network_parallel=ppnet_multi,
@@ -188,20 +154,14 @@ def train_model(log, args):
                 log=log,
                 tensorboard_writer=tensorboard_writer,
             )
-            accu = tnt.test(
+            train_protopnet(
                 args=args,
-                model=ppnet_multi,
-                dataloader=test_loader,
-                class_specific=class_specific,
-                log=log,
-                tensorboard_writer=tensorboard_writer,
-            )
-            save.save_model_w_condition(
-                model=ppnet,
-                model_dir=log.checkpoint_dir,
+                epoch=0,
+                ppnet_multi=ppnet_multi,
+                test_only=True,
+                test_loader=test_loader,
                 model_name=f"{epoch}_push_",
-                accu=accu,
-                target_accu=0.60,
+                class_specific=class_specific,
                 log=log,
             )
 
@@ -209,29 +169,49 @@ def train_model(log, args):
                 tnt.last_only(model=ppnet_multi, log=log)
                 for i in range(args.epochs_finetune):
                     log.info(f"finetune iteration: \t{i}")
-                    _ = tnt.train(
+                    train_protopnet(
                         args=args,
-                        model=ppnet_multi,
-                        dataloader=train_loader,
+                        epoch=epoch,
+                        ppnet_multi=ppnet_multi,
                         optimizer=last_layer_optimizer,
-                        class_specific=class_specific,
-                        log=log,
-                        tensorboard_writer=tensorboard_writer,
-                    )
-                    accu = tnt.test(
-                        args=args,
-                        model=ppnet_multi,
-                        dataloader=test_loader,
-                        class_specific=class_specific,
-                        log=log,
-                        tensorboard_writer=tensorboard_writer,
-                    )
-                    save.save_model_w_condition(
-                        model=ppnet,
-                        model_dir=log.checkpoint_dir,
+                        train_loader=train_loader,
+                        test_loader=test_loader,
                         model_name=f"{epoch}_push_{i}_",
-                        accu=accu,
-                        target_accu=0.60,
+                        class_specific=class_specific,
                         log=log,
+                        tensorboard_writer=tensorboard_writer
                     )
+                    epoch += 1
     tensorboard_writer.close()
+
+
+def train_protopnet(args: argparse.Namespace, epoch: int, ppnet_multi: nn.DataParallel, test_loader: torch.utils.data.DataLoader,
+                    model_name: str, class_specific: bool, log: Log, tensorboard_writer: SummaryWriter, test_only: bool = False, optimizer: torch.optim.Optimizer = None, train_loader: torch.utils.data.DataLoader = None):
+    if not test_only:
+        _ = tnt.train(
+            args=args,
+            epoch=epoch,
+            model=ppnet_multi,
+            dataloader=train_loader,
+            optimizer=optimizer,
+            class_specific=class_specific,
+            log=log,
+            tensorboard_writer=tensorboard_writer,
+        )
+    accu = tnt.test(
+        args=args,
+        epoch=epoch,
+        model=ppnet_multi,
+        dataloader=test_loader,
+        class_specific=class_specific,
+        log=log,
+        tensorboard_writer=tensorboard_writer,
+    )
+    save.save_model_w_condition(
+        model=ppnet_multi.module,
+        model_dir=log.checkpoint_dir,
+        model_name=model_name,
+        accu=accu,
+        target_accu=0.60,
+        log=log,
+    )
