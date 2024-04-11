@@ -36,20 +36,14 @@ def define_parser():
     net_parameter_group.add_argument(
         "--batch_size",
         type=np.uint16,
-        default=64,
+        default=16,
         help="Batch size when training the model using minibatch gradient descent. "
         "Batch size is multiplied with number of available GPUs",
     )
     net_parameter_group.add_argument(
-        "--batch_size_pretrain",
-        type=np.uint16,
-        default=128,
-        help="Batch size when pretraining the prototypes (first training stage)",
-    )
-    net_parameter_group.add_argument(
         "--batch_size_push",
         type=np.uint16,
-        default=128,
+        default=32,
         help="Batch size when pushing the prototypes to the feature space",
     )
     net_parameter_group.add_argument(
