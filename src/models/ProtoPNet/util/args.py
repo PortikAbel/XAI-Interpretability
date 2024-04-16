@@ -47,12 +47,6 @@ def define_parser():
         help="Batch size when pushing the prototypes to the feature space",
     )
     net_parameter_group.add_argument(
-        "--train_backbone_during_pretrain",
-        action="store_true",
-        help="To train the whole backbone during pretrain "
-        "(e.g. if dataset is very different from ImageNet)",
-    )
-    net_parameter_group.add_argument(
         "--epochs",
         type=np.uint16,
         default=60,

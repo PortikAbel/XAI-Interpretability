@@ -153,8 +153,8 @@ def compute_loss_components(
     else:
         cross_entropy = torch.nn.functional.cross_entropy(output, target_)
 
-    l2 = 0.0
-    separation_cost = 0.0
+    l2 = torch.tensor(0.0)
+    separation_cost = torch.tensor(0.0)
     if class_specific:
         max_dist = (
             model.module.prototype_shape[1]
