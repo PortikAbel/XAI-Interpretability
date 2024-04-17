@@ -2,7 +2,9 @@ import argparse
 import os
 import pickle
 from pathlib import Path
+from datetime import datetime as dt
 import numpy as np
+from utils.environment import get_env
 
 
 def get_args() -> argparse.Namespace:
@@ -194,13 +196,15 @@ def get_args() -> argparse.Namespace:
     )
     loss_group.add_argument(
         "--tanh_loss",
-        action="store_true",
+        type=float,
+        default=0.0,
         help="""tanh loss regulates that every prototype
             should be at least oncepresent in a mini-batch.""",
     )
     loss_group.add_argument(
         "--unif_loss",
-        action="store_true",
+        type=float,
+        default=0.0,
         help="""Our tanh-loss optimizes for uniformity
             and was sufficient for our experiments.
             However, if pretraining of the prototypes
@@ -210,7 +214,8 @@ def get_args() -> argparse.Namespace:
     )
     loss_group.add_argument(
         "--variance_loss",
-        action="store_true",
+        type=float,
+        default=0.0,
         help="""Regularizer term that enforces variance of features
             from https://arxiv.org/abs/2105.04906""",
     )
@@ -218,12 +223,6 @@ def get_args() -> argparse.Namespace:
     log_group = parser.add_argument_group(
         "Logging",
         "Specifies the directory where the log files and other outputs should be saved",
-    )
-    log_group.add_argument(
-        "--log_dir",
-        type=Path,
-        default="./runs/run_pipnet",
-        help="The directory in which train progress should be logged",
     )
     log_group.add_argument(
         "--dir_for_saving_images",
@@ -317,7 +316,8 @@ def get_args() -> argparse.Namespace:
     if not args.tanh_loss and not args.unif_loss and not args.variance_loss:
         args.tanh_loss = True
 
-    args.log_dir = Path(os.getenv("PROJECT_ROOT")) / "models" / "PIPNet" / args.log_dir
+    args.log_dir = Path(get_env("LOG_ROOT")) / "pipnet"
+    args.log_dir = args.log_dir / args.net / dt.now().strftime("%Y-%m-%d_%H-%M-%S")
     args.log_dir = args.log_dir.resolve()
     args.log_dir.mkdir(parents=True, exist_ok=True)
 

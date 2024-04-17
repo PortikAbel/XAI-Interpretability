@@ -55,24 +55,17 @@ def train_pipnet(
             count_param += 1
     print("Number of parameters that require gradient: ", count_param, flush=True)
 
-    if pretrain:
-        align_pf_weight = (epoch / args.epochs_pretrain) * 1.0
-        t_weight = 5.0
-        unif_weight = 0.5
-        var_weigth = 0.5
-        cl_weight = 0.0
-    else:
+    align_pf_weight = (epoch / args.epochs_pretrain) * 1.0
+    t_weight = args.tanh_loss
+    unif_weight = args.unif_loss
+    var_weigth = args.variance_loss
+    cl_weight = 0.0
+    if not pretrain:
         align_pf_weight = 5.0
         t_weight = 2.0
         unif_weight = 2.0
         var_weigth = 2.0
         cl_weight = 2.0
-    if not args.tanh_loss:
-        t_weight = 0.0
-    if not args.unif_loss:
-        unif_weight = 0.0
-    if not args.variance_loss:
-        var_weigth = 0.0
 
     print(
         f"Align weight: {align_pf_weight}, "
@@ -258,18 +251,15 @@ def calculate_loss(
                     tensorboard_writer.add_scalar(
                         "Loss/pretrain/LA", a_loss_pf.item(), iteration
                     )
-                    if t_weight > 0:
-                        tensorboard_writer.add_scalar(
-                            "Loss/pretrain/LT", tanh_loss.item(), iteration
-                        )
-                    if unif_weight > 0:
-                        tensorboard_writer.add_scalar(
-                            "Loss/pretrain/LU", uni_loss.item(), iteration
-                        )
-                    if var_weigth > 0:
-                        tensorboard_writer.add_scalar(
-                            "Loss/pretrain/LV", var_loss.item(), iteration
-                        )
+                    tensorboard_writer.add_scalar(
+                        "Loss/pretrain/LT", tanh_loss.item(), iteration
+                    )
+                    tensorboard_writer.add_scalar(
+                        "Loss/pretrain/LU", uni_loss.item(), iteration
+                    )
+                    tensorboard_writer.add_scalar(
+                        "Loss/pretrain/LV", var_loss.item(), iteration
+                    )
             else:
                 train_iter.set_postfix_str(
                     (
@@ -294,18 +284,15 @@ def calculate_loss(
                     tensorboard_writer.add_scalar(
                         "Loss/train/LC", class_loss.item(), iteration
                     )
-                    if t_weight > 0:
-                        tensorboard_writer.add_scalar(
-                            "Loss/train/LT", tanh_loss.item(), iteration
-                        )
-                    if unif_weight > 0:
-                        tensorboard_writer.add_scalar(
-                            "Loss/train/LU", uni_loss.item(), iteration
-                        )
-                    if var_weigth > 0:
-                        tensorboard_writer.add_scalar(
-                            "Loss/train/LV", var_loss.item(), iteration
-                        )
+                    tensorboard_writer.add_scalar(
+                        "Loss/train/LT", tanh_loss.item(), iteration
+                    )
+                    tensorboard_writer.add_scalar(
+                        "Loss/train/LU", uni_loss.item(), iteration
+                    )
+                    tensorboard_writer.add_scalar(
+                        "Loss/train/LV", var_loss.item(), iteration
+                    )
                     tensorboard_writer.add_scalar("Acc/train", acc, iteration)
 
     return loss, acc
