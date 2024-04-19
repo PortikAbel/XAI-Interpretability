@@ -153,8 +153,8 @@ def compute_loss_components(
     else:
         cross_entropy = torch.nn.functional.cross_entropy(output, target_)
 
-    l2 = 0.0
-    separation_cost = 0.0
+    l2 = torch.tensor(0.0)
+    separation_cost = torch.tensor(0.0)
     if class_specific:
         max_dist = (
             model.module.prototype_shape[1]
@@ -261,22 +261,21 @@ def compute_loss_components(
         l1 = model.module.last_layer.weight.norm(p=1)
 
     # compute gradient and do SGD step
-    loss = None
+    if class_specific:
+        loss = (
+            args.coefs["crs_ent"] * cross_entropy
+            + args.coefs["clst"] * cluster_cost
+            + args.coefs["sep"] * separation_cost
+            + (args.coefs["l2"] * l2 if args.separation_type == "avg" else 0)
+            + args.coefs["l1"] * l1
+        )
+    else:
+        loss = (
+            args.coefs["crs_ent"] * cross_entropy
+            + args.coefs["clst"] * cluster_cost
+            + args.coefs["l1"] * l1
+        )
     if is_train:
-        if class_specific:
-            loss = (
-                args.coefs["crs_ent"] * cross_entropy
-                + args.coefs["clst"] * cluster_cost
-                + args.coefs["sep"] * separation_cost
-                + (args.coefs["l2"] * l2 if args.separation_type == "avg" else 0)
-                + args.coefs["l1"] * l1
-            )
-        else:
-            loss = (
-                args.coefs["crs_ent"] * cross_entropy
-                + args.coefs["clst"] * cluster_cost
-                + args.coefs["l1"] * l1
-            )
         optimizer.zero_grad()
         loss.backward()
         optimizer.step()
