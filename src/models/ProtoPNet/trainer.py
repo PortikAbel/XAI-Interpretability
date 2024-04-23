@@ -163,6 +163,7 @@ def train_model(log, args):
                 model_name=f"{epoch}_push_",
                 class_specific=class_specific,
                 log=log,
+                tensorboard_writer=tensorboard_writer,
             )
 
             if args.prototype_activation_function != "linear":
