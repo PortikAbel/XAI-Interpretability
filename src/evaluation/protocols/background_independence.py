@@ -39,9 +39,9 @@ def background_independence_protocol(model, args):
         bg_object_ids = [int(s) for s in re.findall(r"\b\d+\b", params[bg_keys[0]])]
 
         for i in range(len(bg_object_ids)):
-            image2 = test_dataset.get_background_intervention(
-                class_name, image_idx, i
-            )["image"]
+            image2 = test_dataset.get_background_intervention(class_name, image_idx, i)[
+                "image"
+            ]
 
             image2 = image2.cuda(args.gpu, non_blocking=True)
             output = model(image2)

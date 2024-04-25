@@ -45,12 +45,12 @@ base_architecture_to_layer_groups = {
     "convnext_tiny_13": {
         "to_train": ["features.5.3"],
         "to_freeze": ["features.5", "features.4"],
-        "backbone": ['features.3', 'features.2'],
+        "backbone": ["features.3", "features.2"],
     },
     "convnext_tiny_26": {
         "to_train": ["features.7.2"],
         "to_freeze": ["features.7", "features.6"],
-        "backbone": ['features.5', 'features.4'],
+        "backbone": ["features.5", "features.4"],
     },
     "resnet18": {
         "to_train": ["layer4.1"],

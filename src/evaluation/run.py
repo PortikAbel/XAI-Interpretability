@@ -289,7 +289,9 @@ if __name__ == "__main__":
     torch.manual_seed(args.seed)
 
     if args.checkpoint_path:
-        standard_output_file = args.checkpoint_path.parent.parent / "eval_interpretability.txt"
+        standard_output_file = (
+            args.checkpoint_path.parent.parent / "eval_interpretability.txt"
+        )
         sys.stdout.close()
         sys.stdout = standard_output_file.open(mode="w")
 

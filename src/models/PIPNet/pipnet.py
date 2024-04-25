@@ -8,7 +8,7 @@ import torch.nn.functional as F
 from torch import Tensor
 
 from models.features import (
-    base_architecture_to_features, 
+    base_architecture_to_features,
     base_architecture_to_layer_groups,
 )
 
@@ -71,7 +71,7 @@ class PIPNet(nn.Module):
                     param.requires_grad = False
         else:
             print(
-                "Layer groups not implemented for selected backbone architecture.", 
+                "Layer groups not implemented for selected backbone architecture.",
                 flush=True,
             )
         self.param_groups["classification_weight"] = []
