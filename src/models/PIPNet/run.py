@@ -697,6 +697,8 @@ if __name__ == "__main__":
     torch.cuda.manual_seed_all(args.seed)
     random.seed(args.seed)
     np.random.seed(args.seed)
+
+    args.log_dir.mkdir(parents=True, exist_ok=True)
     standard_output_file = args.log_dir / "out.txt"
     error_output_file = args.log_dir / "error.txt"
 

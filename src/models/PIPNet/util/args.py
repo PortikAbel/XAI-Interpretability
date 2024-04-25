@@ -314,12 +314,11 @@ def get_args() -> argparse.Namespace:
     args.image_shape = np.array((args.image_height, args.image_width))
 
     if not args.tanh_loss and not args.unif_loss and not args.variance_loss:
-        args.tanh_loss = True
+        args.tanh_loss = 5.0
 
     args.log_dir = Path(get_env("LOG_ROOT")) / "pipnet"
     args.log_dir = args.log_dir / args.net / dt.now().strftime("%Y-%m-%d_%H-%M-%S")
     args.log_dir = args.log_dir.resolve()
-    args.log_dir.mkdir(parents=True, exist_ok=True)
 
     return args
 

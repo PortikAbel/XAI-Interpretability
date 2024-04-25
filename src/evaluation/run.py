@@ -1,5 +1,6 @@
 import argparse
 import random
+import sys
 from pathlib import Path
 
 import torch
@@ -12,9 +13,10 @@ from models.resnet import resnet50
 from models.vgg import vgg16
 import models.ProtoPNet.model as model_ppnet
 import models.PIPNet.pipnet as model_pipnet
+from evaluation.model_wrapper.base import AbstractModel
+from evaluation.model_wrapper.standard import StandardModel
 from evaluation.model_wrapper.ProtoPNet import ProtoPNetModel
 from evaluation.model_wrapper.PIPNet import PipNetModel
-from evaluation.model_wrapper.standard import StandardModel
 from evaluation.protocols import (
     accuracy_protocol,
     controlled_synthetic_data_check_protocol,
@@ -127,14 +129,7 @@ parser.add_argument(
 )
 
 
-def main():
-    args, _ = parser.parse_known_args()
-    device = "cuda:" + str(args.gpu)
-
-    random.seed(args.seed)
-    torch.manual_seed(args.seed)
-
-    # create model
+def create_model(args: argparse.Namespace):
     if args.model == "resnet50":
         model = resnet50(num_classes=50)
         model = StandardModel(model)
@@ -194,20 +189,27 @@ def main():
     model = model.to(device)
     model.eval()
 
-    # create explainer
-    if args.explainer == "InputXGradient":
+    return model
+
+
+def create_explainer(explainer_type: str, model: AbstractModel):
+    if explainer_type == "InputXGradient":
         explainer = InputXGradient(model)
-        explainer = CaptumAttributionExplainer(explainer)
-    elif args.explainer == "IntegratedGradients":
+        return CaptumAttributionExplainer(explainer)
+    if explainer_type == "IntegratedGradients":
         explainer = IntegratedGradients(model)
         baseline = torch.zeros((1, 3, 256, 256)).to(device)
-        explainer = CaptumAttributionExplainer(explainer, baseline=baseline)
-    elif args.explainer == "ProtoPNet":
-        explainer = ProtoPNetExplainer(model)
-    elif args.explainer == "PIPNet":
-        explainer = PIPNetExplainer(model)
-    else:
-        print("Explainer not implemented")
+        return CaptumAttributionExplainer(explainer, baseline=baseline)
+    if explainer_type == "ProtoPNet":
+        return ProtoPNetExplainer(model)
+    if explainer_type == "PIPNet":
+        return PIPNetExplainer(model)
+    print("Explainer not implemented")
+
+
+def main(args: argparse.Namespace):
+    model = create_model(args)
+    explainer = create_explainer(args.explainer, model)
 
     accuracy, csdc, pc, dc, distractibility, sd, ts = -1, -1, -1, -1, -1, -1, -1
 
@@ -280,4 +282,18 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    args, _ = parser.parse_known_args()
+    device = "cuda:" + str(args.gpu)
+
+    random.seed(args.seed)
+    torch.manual_seed(args.seed)
+
+    if args.checkpoint_path:
+        standard_output_file = args.checkpoint_path.parent.parent / "eval_interpretability.txt"
+        sys.stdout.close()
+        sys.stdout = standard_output_file.open(mode="w")
+
+    main(args)
+
+    if args.checkpoint_path:
+        sys.stdout.close()
