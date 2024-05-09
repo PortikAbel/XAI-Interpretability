@@ -1,12 +1,9 @@
 from tqdm import tqdm
 from enum import Enum
 import torch
-from torch.utils.data import DataLoader
-
-from data.funny_birds import FunnyBirds
 
 
-def accuracy_protocol(model, args):
+def accuracy_protocol(model, dataloader, args):
     class Summary(Enum):
         NONE = 0
         AVERAGE = 1
@@ -69,15 +66,10 @@ def accuracy_protocol(model, args):
                 res.append(correct_k.mul_(100.0 / batch_size))
             return res
 
-    transforms = None
-
-    test_dataset = FunnyBirds(args.data, "test", transform=transforms)
-    test_loader = DataLoader(test_dataset, batch_size=args.batch_size, shuffle=False)
-
     top1 = AverageMeter("Acc@1", ":6.2f")
     top5 = AverageMeter("Acc@5", ":6.2f")
 
-    for samples in tqdm(test_loader):
+    for samples in tqdm(dataloader):
         images = samples["image"]
         target = samples["target"]
         if args.gpu is not None:

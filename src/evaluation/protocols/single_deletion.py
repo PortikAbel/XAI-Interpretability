@@ -5,25 +5,18 @@ from torch.utils.data import DataLoader
 from data.funny_birds import FunnyBirds
 
 
-def single_deletion_protocol(model, explainer, args):
-    transforms = None
-
-    # first get scores for different removed parts and original image
-    test_dataset = FunnyBirds(
-        args.data, "test", get_part_map=True, transform=transforms
-    )
-    test_loader = DataLoader(test_dataset, batch_size=1, shuffle=False)
+def single_deletion_protocol(model, dataloader, explainer, args):
 
     correlations = []
     number_valid_samples = 0
-    for sample in tqdm(test_loader):
+    for sample in tqdm(dataloader):
         image = sample["image"]
         target = sample["target"]
         part_map = sample["part_map"]
         params = sample["params"]
         class_name = sample["class_name"].item()
         image_idx = sample["image_idx"].item()
-        params = test_dataset.get_params_for_single(params)
+        params = dataloader.dataset.get_params_for_single(params)
         if args.gpu is not None:
             image = image.cuda(args.gpu, non_blocking=True)
             part_map = part_map.cuda(args.gpu, non_blocking=True)
@@ -35,10 +28,10 @@ def single_deletion_protocol(model, explainer, args):
         original_score = output[0, target].item()
 
         # get scores for removed parts
-        bird_parts_keys = list(test_dataset.parts.keys())
+        bird_parts_keys = list(dataloader.dataset.parts.keys())
 
         for remove_part in bird_parts_keys:
-            image2 = test_dataset.get_intervention(
+            image2 = dataloader.dataset.get_intervention(
                 class_name, image_idx, [remove_part]
             )["image"]
 
@@ -50,7 +43,7 @@ def single_deletion_protocol(model, explainer, args):
             ].item()  # only keep part name, i.e. eye, instead of eye_model
 
         part_importances = explainer.get_part_importance(
-            image, part_map, target, test_dataset.colors_to_part
+            image, part_map, target, dataloader.dataset.colors_to_part
         )
         score_diffs = {}
         for score_key in score.keys():

@@ -5,9 +5,12 @@ from pathlib import Path
 
 import torch
 import torch.nn as nn
+from torch.utils.data import DataLoader
+
 from captum.attr import IntegratedGradients, InputXGradient
 
 from data.config import dataset_config
+from data.funny_birds import FunnyBirds
 from models.PIPNet.util.args import get_args as get_pipnet_args
 from models.resnet import resnet50
 from models.vgg import vgg16
@@ -34,7 +37,13 @@ from evaluation.explainer_wrapper.PIPNet import PIPNetExplainer
 
 parser = argparse.ArgumentParser(description="FunnyBirds - Explanation Evaluation")
 parser.add_argument(
-    "--data", type=Path, required=True, help="path to dataset (default: imagenet)"
+    "--data_path", type=Path, required=True, help="path to dataset (default: imagenet)"
+)
+parser.add_argument(
+    "--data_subset",
+    choices=["train", "test"],
+    default="test",
+    help="train or test data",
 )
 parser.add_argument(
     "--model",
@@ -210,43 +219,48 @@ def create_explainer(explainer_type: str, model: AbstractModel):
 def main(args: argparse.Namespace):
     model = create_model(args)
     explainer = create_explainer(args.explainer, model)
+    
+    bathed_dataset = FunnyBirds(args.data_path, args.data_subset)
+    partmap_dataset = FunnyBirds(args.data_path, args.data_subset, get_part_map=True)
+    bathed_dataloader = DataLoader(bathed_dataset, batch_size=args.batch_size, shuffle=False)
+    partmap_dataloader = DataLoader(partmap_dataset, batch_size=1, shuffle=False)
 
     accuracy, csdc, pc, dc, distractibility, sd, ts = -1, -1, -1, -1, -1, -1, -1
 
     if args.accuracy:
         print("Computing accuracy...")
-        accuracy = accuracy_protocol(model, args)
+        accuracy = accuracy_protocol(model, bathed_dataloader, args)
         accuracy = round(accuracy, 5)
 
     if args.controlled_synthetic_data_check:
         print("Computing controlled synthetic data check...")
-        csdc = controlled_synthetic_data_check_protocol(model, explainer, args)
+        csdc = controlled_synthetic_data_check_protocol(model, partmap_dataloader, explainer, args)
 
     if args.target_sensitivity:
         print("Computing target sensitivity...")
-        ts = target_sensitivity_protocol(model, explainer, args)
+        ts = target_sensitivity_protocol(model, partmap_dataloader, explainer, args)
         ts = round(ts, 5)
 
     if args.single_deletion:
         print("Computing single deletion...")
-        sd = single_deletion_protocol(model, explainer, args)
+        sd = single_deletion_protocol(model, partmap_dataloader, explainer, args)
         sd = round(sd, 5)
 
     if args.preservation_check:
         print("Computing preservation check...")
-        pc = preservation_check_protocol(model, explainer, args)
+        pc = preservation_check_protocol(model, partmap_dataloader, explainer, args)
 
     if args.deletion_check:
         print("Computing deletion check...")
-        dc = deletion_check_protocol(model, explainer, args)
+        dc = deletion_check_protocol(model, partmap_dataloader, explainer, args)
 
     if args.distractibility:
         print("Computing distractibility...")
-        distractibility = distractibility_protocol(model, explainer, args)
+        distractibility = distractibility_protocol(model, partmap_dataloader, explainer, args)
 
     if args.background_independence:
         print("Computing background independence...")
-        background_independence = background_independence_protocol(model, args)
+        background_independence = background_independence_protocol(model, partmap_dataloader, args)
         background_independence = round(background_independence, 5)
 
     # select completeness and distractability thresholds
@@ -265,15 +279,15 @@ def main(args: argparse.Namespace):
             best_threshold = threshold
 
     print("FINAL RESULTS:")
-    print("Accuracy, CSDC, PC, DC, Distractability, Background independence, SD, TS")
+    print("Accuracy, Background independence, CSDC, PC, DC, Distractability, SD, TS")
     print(
         "{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}".format(
             accuracy,
+            background_independence,
             round(csdc[best_threshold], 5),
             round(pc[best_threshold], 5),
             round(dc[best_threshold], 5),
             round(distractibility[best_threshold], 5),
-            background_independence,
             sd,
             ts,
         )
@@ -290,7 +304,7 @@ if __name__ == "__main__":
 
     if args.checkpoint_path:
         standard_output_file = (
-            args.checkpoint_path.parent.parent / "eval_interpretability.txt"
+            args.checkpoint_path.parent.parent / f"eval_{args.data_subset}_interpretability.txt"
         )
         sys.stdout.close()
         sys.stdout = standard_output_file.open(mode="w")
