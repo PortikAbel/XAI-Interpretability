@@ -110,8 +110,9 @@ def train_model(log, args):
     log.info("start training")
 
     epoch = 1
+    accu = 0.0
     while epoch <= args.n_epochs:
-        log.info(f"warm epoch: \t{epoch}")
+        log.info(f"{'warm ' if epoch <=args.epochs_warm else ''}epoch: \t{epoch}")
         if epoch < args.epochs_warm:
             tnt.warm_only(model=ppnet_multi, log=log)
             optimizer = warm_optimizer
@@ -121,7 +122,7 @@ def train_model(log, args):
                 joint_lr_scheduler.step()
             optimizer = joint_optimizer
 
-        train_protopnet(
+        accu = train_protopnet(
             args=args,
             epoch=epoch,
             ppnet_multi=ppnet_multi,
@@ -154,7 +155,7 @@ def train_model(log, args):
                 log=log,
                 tensorboard_writer=tensorboard_writer,
             )
-            train_protopnet(
+            accu = train_protopnet(
                 args=args,
                 epoch=0,
                 ppnet_multi=ppnet_multi,
@@ -170,7 +171,7 @@ def train_model(log, args):
                 tnt.last_only(model=ppnet_multi, log=log)
                 for i in range(args.epochs_finetune):
                     log.info(f"finetune iteration: \t{i}")
-                    train_protopnet(
+                    accu = train_protopnet(
                         args=args,
                         epoch=epoch,
                         ppnet_multi=ppnet_multi,
@@ -183,6 +184,16 @@ def train_model(log, args):
                         tensorboard_writer=tensorboard_writer,
                     )
                     epoch += 1
+
+    save.save_model_w_condition(
+        model=ppnet_multi.module,
+        model_dir=log.checkpoint_dir,
+        model_name="final",
+        accu=accu,
+        target_accu=0.0,
+        log=log,
+    )
+
     tensorboard_writer.close()
 
 
@@ -227,3 +238,5 @@ def train_protopnet(
         target_accu=0.60,
         log=log,
     )
+
+    return accu
