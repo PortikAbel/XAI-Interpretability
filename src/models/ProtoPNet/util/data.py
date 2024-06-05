@@ -10,7 +10,6 @@ import torchvision.datasets as datasets
 from albumentations.pytorch import ToTensorV2
 from sklearn.model_selection import train_test_split
 
-from data.config import DATASETS
 from utils.log import Log
 
 
@@ -101,11 +100,9 @@ def get_datasets(log: Log, args: argparse.Namespace):
     """
     Load the proper dataset based on the parsed arguments
     """
-    dataset_config = DATASETS[args.dataset]
-
-    train_dir = dataset_config["train_dir"]
-    train_dir_projection = dataset_config.get("train_dir_projection", train_dir)
-    test_dir = dataset_config.get("test_dir", None)
+    train_dir = args.train_dir
+    train_dir_projection = args.train_dir_projection
+    test_dir = args.test_dir
 
     train_val_set = torchvision.datasets.ImageFolder(train_dir)
     classes = train_val_set.classes
@@ -149,9 +146,12 @@ def get_datasets(log: Log, args: argparse.Namespace):
             test_dir, transform=Transforms(transform_validation)
         )
 
-    train_set = datasets.ImageFolder(
-        train_dir,
-        transform=Transforms(transform_train),
+    train_set = torch.utils.data.Subset(
+        datasets.ImageFolder(
+            train_dir,
+            transform=Transforms(transform_train),
+        ),
+        indices=train_indices,
     )
 
     push_set = torchvision.datasets.ImageFolder(

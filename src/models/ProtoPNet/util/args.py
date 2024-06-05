@@ -1,4 +1,5 @@
 import argparse
+import warnings
 from pathlib import Path
 
 import numpy as np
@@ -307,7 +308,9 @@ class ProtoPNetArgumentParser(ModelArgumentParser):
         :return: specified arguments in the command line
         """
         super().get_args()
-        GeneralModelParametersParser.validate_data(cls._args, "ProtoPNet")
+        GeneralModelParametersParser.validate_data(
+            cls._args, "ProtoPNet", cls._args.net
+        )
 
         cls._args.prototype_shape = (
             cls._args.n_prototypes_per_class * cls._args.num_classes,
@@ -318,21 +321,16 @@ class ProtoPNetArgumentParser(ModelArgumentParser):
 
         cls._args.n_epochs = cls._args.epochs + cls._args.epochs_warm
         if cls._args.push_start <= cls._args.epochs_warm:
-            raise ValueError(
-                "The push phase should start after the warm phase. "
-                f"Push start: {cls._args.push_start}, Warm epochs: "
-                f"{cls._args.epochs_warm}"
+            warnings.warn(
+                f"Push start epoch ({cls._args.push_start}) is before the end of "
+                f"warm phase ({cls._args.epochs_warm}). Push start modified to "
+                f"{cls._args.epochs_warm + cls._args.push_start}"
             )
+            cls._args.push_start = cls._args.epochs_warm + cls._args.push_start
         # define the epochs where the prototypes are pushed to the feature space
         cls._args.push_epochs = np.arange(
             cls._args.push_start, cls._args.n_epochs, cls._args.push_interval
         )
-        # after each push epoch, the last layer is fine-tuned for a few epochs which
-        # should be considered when defining the total number of epochs and push epochs
-        cls._args.n_epochs += cls._args.epochs_finetune * (
-            len(cls._args.push_epochs) + 1
-        )
-        cls._args.push_epochs[1:] += cls._args.epochs_finetune
 
         cls._args.push_epochs = set(cls._args.push_epochs)
         cls._args.push_epochs.add(
