@@ -138,7 +138,7 @@ def train_model(log, args):
 
         if epoch in args.push_epochs:
             push.push_prototypes(
-                train_push_loader,  # pytorch dataloader (must be un-normalized in [0,1])
+                train_push_loader,  # dataloader (must be un-normalized in [0,1])
                 prototype_network_parallel=ppnet_multi,
                 # pytorch network with prototype_vectors
                 class_specific=class_specific,
@@ -149,8 +149,8 @@ def train_model(log, args):
                 epoch_number=epoch,
                 # if not provided, prototypes saved previously will be overwritten
                 prototype_img_filename_prefix=args.prototype_img_filename_prefix,
-                prototype_self_act_filename_prefix=args.prototype_self_act_filename_prefix,
-                proto_bound_boxes_filename_prefix=args.proto_bound_boxes_filename_prefix,
+                prototype_self_act_filename_prefix=args.prototype_self_act_filename_prefix,  # noqa
+                proto_bound_boxes_filename_prefix=args.proto_bound_boxes_filename_prefix,  # noqa
                 save_prototype_class_identity=True,
                 log=log,
                 tensorboard_writer=tensorboard_writer,

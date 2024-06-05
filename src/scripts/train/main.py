@@ -21,15 +21,15 @@ match args.model:
     case "ProtoPNet":
         from models.ProtoPNet.trainer import train_model
         from models.ProtoPNet.util.args import (
-            ProtoPNetArgumentParser as model_args_parser,
+            ProtoPNetArgumentParser as ModelArgumentParser,
         )
     case "PIPNet":
         from models.PIPNet.trainer import train_model
-        from models.PIPNet.util.args import PIPNetArgumentParser as model_args_parser
+        from models.PIPNet.util.args import PIPNetArgumentParser as ModelArgumentParser
     case _:
         raise ValueError(f"Unknown model: {args.model}")
 
-model_args = model_args_parser.get_args()
+model_args = ModelArgumentParser.get_args()
 
 # Create a logger
 log = Log(model_args.log_dir, __name__, not args.enable_console)
@@ -40,7 +40,7 @@ warnings.showwarning = lambda message, *_: log.warning(
 )
 
 # Log the run arguments
-model_args_parser.save_args(log.metadata_dir)
+ModelArgumentParser.save_args(log.metadata_dir)
 
 torch.manual_seed(model_args.seed)
 torch.cuda.manual_seed_all(model_args.seed)
