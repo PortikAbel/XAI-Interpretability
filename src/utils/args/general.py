@@ -136,13 +136,18 @@ class GeneralModelParametersParser(argparse.ArgumentParser):
         )
 
     @staticmethod
-    def validate_data(args: argparse.Namespace, model_name: str) -> argparse.Namespace:
+    def validate_data(
+        args: argparse.Namespace, model_name: str, backbone_network: str = None
+    ) -> argparse.Namespace:
         """
         Validate the data.
 
-        :param args: The arguments to validate
-        :param model_name: The name of the model being trained
+        :param args: Arguments to be validated
+        :param model_name: Name of the model being trained
+        :param backbone_network: Name of the backbone network. Defaults to ``None``.
         """
+        if backbone_network is not None:
+            model_name = f"{model_name}/{backbone_network}"
         args.log_dir = Path(get_env("PROJECT_ROOT"), "runs", model_name, args.log_dir)
         args.log_dir = args.log_dir.resolve()
         args.log_dir.mkdir(parents=True, exist_ok=True)

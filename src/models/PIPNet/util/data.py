@@ -11,7 +11,6 @@ import torchvision.transforms.v2 as transforms
 from sklearn.model_selection import train_test_split
 from torch import Tensor
 
-from data.config import DATASETS
 from utils.log import Log
 
 
@@ -122,13 +121,11 @@ def get_datasets(log: Log, args: argparse.Namespace):
     random.seed(args.seed)
     np.random.seed(args.seed)
 
-    dataset_config = DATASETS[args.dataset]
-
-    train_dir = dataset_config["train_dir"]
-    train_dir_pretrain = dataset_config.get("train_dir_pretrain", train_dir)
-    train_dir_projection = dataset_config.get("train_dir_projection", train_dir)
-    test_dir = dataset_config.get("test_dir", None)
-    test_dir_projection = dataset_config.get("test_dir_projection", test_dir)
+    train_dir = args.train_dir
+    train_dir_pretrain = args.train_dir_pretrain
+    train_dir_projection = args.train_dir_projection
+    test_dir = args.test_dir
+    test_dir_projection = args.test_dir_projection
 
     train_val_set = torchvision.datasets.ImageFolder(train_dir)
     classes = train_val_set.classes
@@ -223,10 +220,9 @@ def get_datasets(log: Log, args: argparse.Namespace):
 
 
 def get_transforms(args: argparse.Namespace):
-    dataset_config = DATASETS[args.dataset]
 
-    mean = dataset_config["mean"]
-    std = dataset_config["std"]
+    mean = args.mean
+    std = args.std
     img_shape = tuple(args.image_shape)
 
     normalize = transforms.Normalize(mean=mean, std=std)
@@ -240,7 +236,7 @@ def get_transforms(args: argparse.Namespace):
         ]
     )
 
-    if dataset_config["augm"]:
+    if args.augm:
         # transform1: first step of augmentation
         match args.dataset:
             case "CUB-200-2011" | "CUB-10" | "Funny" | "Funny-10":

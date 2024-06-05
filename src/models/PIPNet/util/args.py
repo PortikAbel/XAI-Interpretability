@@ -1,4 +1,5 @@
 import argparse
+import warnings
 from pathlib import Path
 
 import numpy as np
@@ -11,7 +12,7 @@ def define_parser():
     parser = argparse.ArgumentParser(
         "Train PIPNet",
         description="Necessary parameters to train a PIPNet",
-        parents=[GeneralModelParametersParser("PIPNet", add_help=False)],
+        parents=[GeneralModelParametersParser(add_help=False)],
     )
 
     net_group = parser.add_mutually_exclusive_group()
@@ -230,7 +231,7 @@ def define_parser():
 
 
 class PIPNetArgumentParser(ModelArgumentParser):
-    __parser = define_parser()
+    _parser = define_parser()
 
     @classmethod
     def get_args(cls, known_args_only: bool = True) -> argparse.Namespace:
@@ -242,9 +243,10 @@ class PIPNetArgumentParser(ModelArgumentParser):
         :return: specified arguments in the command line
         """
         super().get_args()
+        GeneralModelParametersParser.validate_data(cls._args, "PIPNet", cls._args.net)
 
         if cls._args.image_height is None and cls._args.image_width is None:
-            cls.__parser.error("Both image_height and image_width cannot be None")
+            cls._parser.error("Both image_height and image_width cannot be None")
 
         cls._args.image_height = cls._args.image_height or cls._args.image_width
         cls._args.image_width = cls._args.image_width or cls._args.image_height
@@ -258,6 +260,7 @@ class PIPNetArgumentParser(ModelArgumentParser):
             and not cls._args.unif_loss
             and not cls._args.variance_loss
         ):
+            warnings.warn(f"No loss function specified. Using tanh loss by default")
             cls._args.tanh_loss = True
 
         return cls._args
