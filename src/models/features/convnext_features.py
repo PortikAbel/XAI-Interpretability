@@ -2,6 +2,22 @@ import torch
 import torch.nn as nn
 from torchvision import models
 
+from evaluation.model_wrapper.base import AbstractModel
+
+
+class ConxNext_features(AbstractModel):
+    """
+    A wrapper for ProtoPNet models.
+    Args:
+        model: PyTorch ConvNext model
+    """
+
+    def __init__(self, model):
+        super().__init__(model)
+
+    def conv_info(self):
+        return self.kernel_sizes, self.strides, self.paddings
+
 
 def replace_convlayers_convnext(model, threshold):
     for n, module in model.named_children():
@@ -28,7 +44,8 @@ def convnext_tiny_26_features(pretrained=False, **kwargs):
         model.classifier = nn.Identity()
         model = replace_convlayers_convnext(model, 100)
 
-    return model
+    print("IDE")
+    return ConxNext_features(model)
 
 
 def convnext_tiny_13_features(pretrained=False, **kwargs):
@@ -40,4 +57,4 @@ def convnext_tiny_13_features(pretrained=False, **kwargs):
         model.classifier = nn.Identity()
         model = replace_convlayers_convnext(model, 300)
 
-    return model
+    return ConxNext_features(model)
