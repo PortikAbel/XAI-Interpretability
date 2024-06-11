@@ -56,7 +56,7 @@ class PPNet(nn.Module):
         self.features = features
 
         features_name = str(self.features).upper()
-        if features_name.startswith("VGG") or features_name.startswith("RES"):
+        if features_name.startswith("VGG") or features_name.startswith("RES") or features_name.startswith("CONV"):
             first_add_on_layer_in_channels = [
                 i for i in features.modules() if isinstance(i, nn.Conv2d)
             ][-1].out_channels
