@@ -5,7 +5,7 @@ from torchvision import models
 from evaluation.model_wrapper.base import AbstractModel
 
 
-class ConxNext_features(AbstractModel):
+class ConvNext_features(AbstractModel):
     """
     A wrapper for ProtoPNet models.
     Args:
@@ -14,8 +14,21 @@ class ConxNext_features(AbstractModel):
 
     def __init__(self, model):
         super().__init__(model)
+        self.kernel_sizes = []
+        self.strides = []
+        self.paddings = []
 
     def conv_info(self):
+        for name, module in self.model.named_modules():
+            if isinstance(module, nn.Conv2d):
+                print("------------------")
+                print(name)
+                print("Kernel size: ", module.kernel_size[0])
+                self.kernel_sizes.append(module.kernel_size[0])
+                print("Stride: ", module.stride[0])
+                self.strides.append(module.stride[0])
+                print("Padding: ", module.padding[0])
+                self.paddings.append(module.padding[0])                
         return self.kernel_sizes, self.strides, self.paddings
 
 
@@ -44,8 +57,7 @@ def convnext_tiny_26_features(pretrained=False, **kwargs):
         model.classifier = nn.Identity()
         model = replace_convlayers_convnext(model, 100)
 
-    print("IDE")
-    return ConxNext_features(model)
+    return ConvNext_features(model)
 
 
 def convnext_tiny_13_features(pretrained=False, **kwargs):
@@ -57,4 +69,4 @@ def convnext_tiny_13_features(pretrained=False, **kwargs):
         model.classifier = nn.Identity()
         model = replace_convlayers_convnext(model, 300)
 
-    return ConxNext_features(model)
+    return ConvNext_features(model)
