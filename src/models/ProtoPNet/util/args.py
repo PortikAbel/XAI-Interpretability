@@ -30,6 +30,11 @@ def define_parser():
         help="The directory containing a state dict with a pretrained ProtoPNet. "
         "E.g., ./runs/ProtoPNet/<run_name>/checkpoints/net_pretrained",
     )
+    net_group.add_argument(
+        "--backbone_only",
+        action="store_true",
+        help="Flag that indicates whether to train only the backbone network.",
+    )
 
     net_parameter_group = parser.add_argument_group(
         "Network parameters", "Specifies the used network's hyperparameters"
@@ -319,28 +324,38 @@ class ProtoPNetArgumentParser(ModelArgumentParser):
             1,
         )
 
+        if cls._args.backbone_only:
+            if cls._args.epochs_warm > 0:
+                warnings.warn(
+                    "Training backbone model consists only in joint phase. "
+                    "Setting number of warm epochs to 0."
+                )
+                cls._args.epochs_warm = 0
+
         cls._args.n_epochs = cls._args.epochs + cls._args.epochs_warm
-        if cls._args.push_start <= cls._args.epochs_warm:
-            warnings.warn(
-                f"Push start epoch ({cls._args.push_start}) is before the end of "
-                f"warm phase ({cls._args.epochs_warm}). Push start modified to "
-                f"{cls._args.epochs_warm + cls._args.push_start}"
+
+        if not cls._args.backbone_only:
+            if cls._args.push_start <= cls._args.epochs_warm:
+                warnings.warn(
+                    f"Push start epoch ({cls._args.push_start}) is before the end of "
+                    f"warm phase ({cls._args.epochs_warm}). Push start modified to "
+                    f"{cls._args.epochs_warm + cls._args.push_start}"
+                )
+                cls._args.push_start = cls._args.epochs_warm + cls._args.push_start
+            # define the epochs where the prototypes are pushed to the feature space
+            cls._args.push_epochs = np.arange(
+                cls._args.push_start, cls._args.n_epochs, cls._args.push_interval
             )
-            cls._args.push_start = cls._args.epochs_warm + cls._args.push_start
-        # define the epochs where the prototypes are pushed to the feature space
-        cls._args.push_epochs = np.arange(
-            cls._args.push_start, cls._args.n_epochs, cls._args.push_interval
-        )
 
-        cls._args.push_epochs = set(cls._args.push_epochs)
-        cls._args.push_epochs.add(
-            cls._args.n_epochs
-        )  # add the last epoch to the push epochs
+            cls._args.push_epochs = set(cls._args.push_epochs)
+            cls._args.push_epochs.add(
+                cls._args.n_epochs
+            )  # add the last epoch to the push epochs
 
-        cls._args.warm_optimizer_lrs = {
-            "add_on_layers": cls._args.warm_lr_add_on_layers,
-            "prototype_vectors": cls._args.warm_lr_prototype_vectors,
-        }
+            cls._args.warm_optimizer_lrs = {
+                "add_on_layers": cls._args.warm_lr_add_on_layers,
+                "prototype_vectors": cls._args.warm_lr_prototype_vectors,
+            }
         cls._args.joint_optimizer_lrs = {
             "features": cls._args.joint_lr_features,
             "add_on_layers": cls._args.joint_lr_add_on_layers,
@@ -356,5 +371,11 @@ class ProtoPNetArgumentParser(ModelArgumentParser):
             "l1": cls._args.coefficient_l1,
             "l2": cls._args.coefficient_l2,
         }
+
+        if cls._args.backbone_only:
+            cls._args.coefs["sep"] = 0
+            cls._args.coefs["sep_margin"] = 0
+            cls._args.coefs["clst"] = 0
+            cls._args.coefs["l2"] = 0
 
         return cls._args

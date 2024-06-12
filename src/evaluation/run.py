@@ -153,6 +153,7 @@ def main():
         print("REMEMBER TO ADJUST PROTOPNET PATH AND EPOCH")
         model = model_ppnet.construct_PPNet(
             base_architecture=base_architecture,
+            backbone_only=False,
             pretrained=True,
             img_shape=img_size,
             prototype_shape=prototype_shape,

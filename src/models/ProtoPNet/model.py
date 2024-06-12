@@ -12,6 +12,117 @@ AdditionalOuts = namedtuple(
 )
 
 
+class BBNet(nn.Module):
+    def __init__(
+        self,
+        features,
+        img_shape,
+        prototype_shape,
+        num_classes,
+        in_channels=3,
+        add_on_layers_type="bottleneck",
+    ):
+        super(BBNet, self).__init__()
+        self.img_shape = img_shape
+        self.prototype_shape = prototype_shape
+        self.num_classes = num_classes
+        self.epsilon = 1e-4
+
+        # this has to be named features to allow the precise loading
+        self.features = features
+
+        features_name = str(self.features).upper()
+        if features_name.startswith("VGG") or features_name.startswith("RES"):
+            first_add_on_layer_in_channels = [
+                i for i in features.modules() if isinstance(i, nn.Conv2d)
+            ][-1].out_channels
+        elif features_name.startswith("DENSE"):
+            first_add_on_layer_in_channels = [
+                i for i in features.modules() if isinstance(i, nn.BatchNorm2d)
+            ][-1].num_features
+        else:
+            raise Exception("other base base_architecture NOT implemented")
+
+        if add_on_layers_type == "bottleneck":
+            add_on_layers = []
+            current_in_channels = first_add_on_layer_in_channels
+            while (current_in_channels > self.prototype_shape[1]) or (
+                len(add_on_layers) == 0
+            ):
+                current_out_channels = max(
+                    self.prototype_shape[1], (current_in_channels // 2)
+                )
+                add_on_layers.append(
+                    nn.Conv2d(
+                        in_channels=current_in_channels,
+                        out_channels=current_out_channels,
+                        kernel_size=1,
+                    )
+                )
+                add_on_layers.append(nn.ReLU())
+                add_on_layers.append(
+                    nn.Conv2d(
+                        in_channels=current_out_channels,
+                        out_channels=current_out_channels,
+                        kernel_size=1,
+                    )
+                )
+                if current_out_channels > self.prototype_shape[1]:
+                    add_on_layers.append(nn.ReLU())
+                else:
+                    assert current_out_channels == self.prototype_shape[1]
+                    add_on_layers.append(nn.Sigmoid())
+                current_in_channels = current_in_channels // 2
+            self.add_on_layers = nn.Sequential(*add_on_layers)
+        else:
+            self.add_on_layers = nn.Sequential(
+                nn.Conv2d(
+                    in_channels=first_add_on_layer_in_channels,
+                    out_channels=self.prototype_shape[1],
+                    kernel_size=1,
+                ),
+                nn.ReLU(),
+                nn.Conv2d(
+                    in_channels=self.prototype_shape[1],
+                    out_channels=self.prototype_shape[1],
+                    kernel_size=1,
+                ),
+                nn.Sigmoid(),
+            )
+
+        x = torch.randn(1, in_channels, *img_shape)
+        x = self.features(x)
+        x = self.add_on_layers(x)
+        n, d, w, h = x.size()
+        self.last_layer = nn.Linear(
+            d * w * h, self.num_classes, bias=False
+        )  # do not use bias
+
+    def forward(self, x):
+        x = self.features(x)
+        x = self.add_on_layers(x)
+        x = x.view(x.size()[0], -1)
+        logits = self.last_layer(x)
+        return logits, None
+
+    def __repr__(self):
+        rep = (
+            "BBNet(\n"
+            "\tfeatures: {},\n"
+            "\timg_shape: {},\n"
+            "\tnum_classes: {},\n"
+            "\tepsilon: {}\n"
+            ")"
+        )
+
+        return rep.format(
+            self.features,
+            self.img_shape,
+            self.num_classes,
+            self.epsilon,
+        )
+
+
 class PPNet(nn.Module):
     def __init__(
         self,
@@ -324,29 +435,48 @@ class PPNet(nn.Module):
 
 def construct_PPNet(
     base_architecture: str,
+    backbone_only: bool,
     pretrained: bool = True,
-    img_shape: tuple[int, int] = (224, 224),
+    img_shape: tuple[int, int] | int = (224, 224),
+    in_channels: int = 3,
     prototype_shape: tuple[int, int, int, int] = (2000, 512, 1, 1),
     num_classes: int = 200,
     prototype_activation_function: str = "log",
     add_on_layers_type: str = "bottleneck",
 ):
-    features = base_architecture_to_features[base_architecture](pretrained=pretrained)
-    layer_filter_sizes, layer_strides, layer_paddings = features.conv_info()
-    proto_layer_rf_info = compute_proto_layer_rf_info_v2(
-        img_shape=img_shape,
-        layer_filter_sizes=layer_filter_sizes,
-        layer_strides=layer_strides,
-        layer_paddings=layer_paddings,
-        prototype_kernel_size=prototype_shape[2],
+    if type(img_shape) is int:
+        img_shape = (img_shape, img_shape)
+
+    features = base_architecture_to_features[base_architecture](
+        pretrained=pretrained,
+        in_channels=in_channels,
     )
-    return PPNet(
-        features=features,
-        img_shape=img_shape,
-        prototype_shape=prototype_shape,
-        proto_layer_rf_info=proto_layer_rf_info,
-        num_classes=num_classes,
-        init_weights=True,
-        prototype_activation_function=prototype_activation_function,
-        add_on_layers_type=add_on_layers_type,
-    )
+
+    if backbone_only:
+        return BBNet(
+            features=features,
+            img_shape=img_shape,
+            prototype_shape=prototype_shape,
+            num_classes=num_classes,
+            in_channels=in_channels,
+            add_on_layers_type=add_on_layers_type,
+        )
+    else:
+        layer_filter_sizes, layer_strides, layer_paddings = features.conv_info()
+        proto_layer_rf_info = compute_proto_layer_rf_info_v2(
+            img_shape=img_shape,
+            layer_filter_sizes=layer_filter_sizes,
+            layer_strides=layer_strides,
+            layer_paddings=layer_paddings,
+            prototype_kernel_size=prototype_shape[2],
+        )
+        return PPNet(
+            features=features,
+            img_shape=img_shape,
+            prototype_shape=prototype_shape,
+            proto_layer_rf_info=proto_layer_rf_info,
+            num_classes=num_classes,
+            init_weights=True,
+            prototype_activation_function=prototype_activation_function,
+            add_on_layers_type=add_on_layers_type,
+        )

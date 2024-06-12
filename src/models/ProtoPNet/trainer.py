@@ -14,19 +14,12 @@ from models.ProtoPNet.util.preprocess import preprocess
 from utils.log import Log
 
 
-def train_model(log, args):
-    log.info(
-        f"Device used: {args.device} "
-        f"{f'with id {args.device_ids}' if len(args.device_ids) > 0 else ''}"
-    )
-
-    tensorboard_writer = SummaryWriter(log_dir=args.log_dir)
-
+def _train_backbone_model(log, tensorboard_writer, args):
     img_dir = log.log_dir / args.dir_for_saving_images
 
     (
         train_loader,
-        train_push_loader,
+        _,
         test_loader,
         classes,
     ) = get_dataloaders(log, args)
@@ -34,14 +27,13 @@ def train_model(log, args):
     # we should look into distributed sampler more carefully
     # at torch.utils.data.distributed.DistributedSampler(train_dataset)
     log.info(f"training set size: {len(train_loader.dataset)}")
-    log.info(f"push set size: {len(train_push_loader.dataset)}")
     log.info(f"test set size: {len(test_loader.dataset)}")
     log.info(f"batch size: {args.batch_size}")
-    log.info(f"number of prototypes per class: {args.n_prototypes_per_class}")
 
     # construct the model
     ppnet = model.construct_PPNet(
         base_architecture=args.net,
+        backbone_only=args.backbone_only,
         pretrained=not args.disable_pretrained,
         img_shape=args.img_shape,
         prototype_shape=args.prototype_shape,
@@ -67,7 +59,93 @@ def train_model(log, args):
             "weight_decay": 1e-3,
         },
     ]
-    joint_optimizer_specs += [
+
+    joint_optimizer = torch.optim.Adam(joint_optimizer_specs)
+    joint_lr_scheduler = torch.optim.lr_scheduler.StepLR(
+        joint_optimizer, step_size=args.joint_lr_step, gamma=0.1
+    )
+
+    # train the model
+    log.info("start training")
+
+    epoch = 1
+    accu = 0.0
+    while epoch <= args.n_epochs:
+        log.info(f"epoch: \t{epoch} / {args.n_epochs}")
+        tnt.joint(model=ppnet_multi, log=log)
+        if epoch > 1:
+            joint_lr_scheduler.step()
+
+        accu = train_protopnet(
+            args=args,
+            epoch=epoch,
+            ppnet_multi=ppnet_multi,
+            optimizer=joint_optimizer,
+            train_loader=train_loader,
+            test_loader=test_loader,
+            model_name=f"{epoch}",
+            class_specific=class_specific,
+            log=log,
+            tensorboard_writer=tensorboard_writer,
+        )
+        epoch += 1
+
+    save.save_model_w_condition(
+        model=ppnet_multi.module,
+        model_dir=log.checkpoint_dir,
+        model_name="final",
+        accu=accu,
+        target_accu=0.0,
+        log=log,
+    )
+
+
+def _train_explainable_model(log, tensorboard_writer, args):
+    img_dir = log.log_dir / args.dir_for_saving_images
+
+    (
+        train_loader,
+        train_push_loader,
+        test_loader,
+        classes,
+    ) = get_dataloaders(log, args)
+
+    # we should look into distributed sampler more carefully
+    # at torch.utils.data.distributed.DistributedSampler(train_dataset)
+    log.info(f"training set size: {len(train_loader.dataset)}")
+    log.info(f"push set size: {len(train_push_loader.dataset)}")
+    log.info(f"test set size: {len(test_loader.dataset)}")
+    log.info(f"batch size: {args.batch_size}")
+    log.info(f"number of prototypes per class: {args.n_prototypes_per_class}")
+
+    # construct the model
+    ppnet = model.construct_PPNet(
+        base_architecture=args.net,
+        backbone_only=args.backbone_only,
+        pretrained=not args.disable_pretrained,
+        img_shape=args.img_shape,
+        prototype_shape=args.prototype_shape,
+        num_classes=args.num_classes,
+        prototype_activation_function=args.prototype_activation_function,
+        add_on_layers_type=args.add_on_layers_type,
+    )
+    # if prototype_activation_function == 'linear':
+    #    ppnet.set_last_layer_incorrect_connection(incorrect_strength=0)
+    ppnet = ppnet.cuda()
+    ppnet_multi = torch.nn.DataParallel(ppnet)
+    class_specific = True
+
+    joint_optimizer_specs = [
+        {
+            "params": ppnet.features.parameters(),
+            "lr": args.joint_optimizer_lrs["features"],
+            "weight_decay": 1e-3,
+        },  # bias are now also being regularized
+        {
+            "params": ppnet.add_on_layers.parameters(),
+            "lr": args.joint_optimizer_lrs["add_on_layers"],
+            "weight_decay": 1e-3,
+        },
         {
             "params": ppnet.prototype_vectors,
             "lr": args.joint_optimizer_lrs["prototype_vectors"],
@@ -85,8 +163,6 @@ def train_model(log, args):
             "lr": args.warm_optimizer_lrs["add_on_layers"],
             "weight_decay": 1e-3,
         },
-    ]
-    warm_optimizer_specs += [
         {
             "params": ppnet.prototype_vectors,
             "lr": args.warm_optimizer_lrs["prototype_vectors"],
@@ -112,7 +188,9 @@ def train_model(log, args):
     epoch = 1
     accu = 0.0
     while epoch <= args.n_epochs:
-        log.info(f"{'warm ' if epoch <=args.epochs_warm else ''}epoch: \t{epoch}")
+        log.info(f"{'warm ' if epoch <=args.epochs_warm else ''}"
+                 f"epoch: \t{epoch} / "
+                 f"{args.epochs_warm if epoch <= args.epochs_warm else args.n_epochs}")
         if epoch < args.epochs_warm:
             tnt.warm_only(model=ppnet_multi, log=log)
             optimizer = warm_optimizer
@@ -170,7 +248,7 @@ def train_model(log, args):
             if args.prototype_activation_function != "linear":
                 tnt.last_only(model=ppnet_multi, log=log)
                 for i in range(args.epochs_finetune):
-                    log.info(f"finetune iteration: \t{i}")
+                    log.info(f"finetune iteration: \t{i} / {args.epochs_finetune}")
                     accu = train_protopnet(
                         args=args,
                         epoch=epoch,
@@ -193,6 +271,22 @@ def train_model(log, args):
         target_accu=0.0,
         log=log,
     )
+
+    tensorboard_writer.close()
+
+
+def train_model(log, args):
+    log.info(
+        f"Device used: {args.device} "
+        f"{f'with id {args.device_ids}' if len(args.device_ids) > 0 else ''}"
+    )
+
+    tensorboard_writer = SummaryWriter(log_dir=args.log_dir)
+
+    if args.backbone_only:
+        _train_backbone_model(log, tensorboard_writer, args)
+    else:
+        _train_explainable_model(log, tensorboard_writer, args)
 
     tensorboard_writer.close()
 

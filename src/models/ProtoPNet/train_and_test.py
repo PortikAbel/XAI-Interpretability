@@ -116,10 +116,11 @@ def _train_or_test(
         f"{f1_score(true_labels, predicted_labels, average='macro')}"
     )
     log.info(f"\t\t{'l1:':13}{model.module.last_layer.weight.norm(p=1).item()}")
-    p = model.module.prototype_vectors.view(model.module.num_prototypes, -1).cpu()
-    with torch.no_grad():
-        p_avg_pair_dist = torch.mean(list_of_distances(p, p))
-    log.info(f"\t\tp dist pair: {p_avg_pair_dist.item()}")
+    if hasattr(model.module, "prototype_vectors"):
+        p = model.module.prototype_vectors.view(model.module.num_prototypes, -1).cpu()
+        with torch.no_grad():
+            p_avg_pair_dist = torch.mean(list_of_distances(p, p))
+        log.info(f"\t\tp dist pair: {p_avg_pair_dist.item()}")
 
     return n_correct / n_examples
 
@@ -155,109 +156,112 @@ def compute_loss_components(
 
     l2 = torch.tensor(0.0)
     separation_cost = torch.tensor(0.0)
+    cluster_cost = torch.tensor(0.0)
     if class_specific:
-        max_dist = (
-            model.module.prototype_shape[1]
-            * model.module.prototype_shape[2]
-            * model.module.prototype_shape[3]
-        )
+        if args.coefs["sep"] != 0:
+            max_dist = (
+                model.module.prototype_shape[1]
+                * model.module.prototype_shape[2]
+                * model.module.prototype_shape[3]
+            )
 
-        # prototypes_of_correct_class is a tensor
-        # of shape batch_size * num_prototypes
-        # calculate cluster cost
-        prototypes_of_correct_class = torch.t(
-            model.module.prototype_class_identity[:, label]
-        ).cuda()
-        inverted_distances, target_proto_index = torch.max(
-            (max_dist - additional_out.min_distances) * prototypes_of_correct_class,
-            dim=1,
-        )
-        cluster_cost = torch.mean(max_dist - inverted_distances)
-
-        # calculate separation cost
-        prototypes_of_wrong_class = 1 - prototypes_of_correct_class
-
-        if args.separation_type == "max":
-            (
-                inverted_distances_to_nontarget_prototypes,
-                _,
-            ) = torch.max(
-                (max_dist - additional_out.min_distances) * prototypes_of_wrong_class,
+            # prototypes_of_correct_class is a tensor
+            # of shape batch_size * num_prototypes
+            # calculate cluster cost
+            prototypes_of_correct_class = torch.t(
+                model.module.prototype_class_identity[:, label]
+            ).cuda()
+            inverted_distances, target_proto_index = torch.max(
+                (max_dist - additional_out.min_distances) * prototypes_of_correct_class,
                 dim=1,
             )
-            separation_cost = torch.mean(
-                max_dist - inverted_distances_to_nontarget_prototypes
-            )
-        elif args.separation_type == "avg":
-            min_distances_detached_prototype_vectors = (
-                model.module.prototype_min_distances(input_, detach_prototypes=True)[0]
-            )
-            # calculate avg cluster cost
-            avg_separation_cost = torch.sum(
-                min_distances_detached_prototype_vectors * prototypes_of_wrong_class,
-                dim=1,
-            ) / torch.sum(prototypes_of_wrong_class, dim=1)
-            avg_separation_cost = torch.mean(avg_separation_cost)
+            cluster_cost = torch.mean(max_dist - inverted_distances)
 
-            l2 = (
-                torch.mm(
-                    model.module.prototype_vectors[:, :, 0, 0],
-                    model.module.prototype_vectors[:, :, 0, 0].t(),
+            # calculate separation cost
+            prototypes_of_wrong_class = 1 - prototypes_of_correct_class
+
+            if args.separation_type == "max":
+                (
+                    inverted_distances_to_nontarget_prototypes,
+                    _,
+                ) = torch.max(
+                    (max_dist - additional_out.min_distances) * prototypes_of_wrong_class,
+                    dim=1,
                 )
-                - torch.eye(args.prototype_shape[0]).cuda()
-            ).norm(p=2)
-
-            separation_cost = avg_separation_cost
-        elif args.separation_type == "margin":
-            # For each input get the distance
-            # to the closest target class prototype
-            min_distance_target = max_dist - inverted_distances.reshape((-1, 1))
-
-            all_distances = additional_out.distances
-            min_indices = additional_out.min_indices
-
-            anchor_index = min_indices[
-                torch.arange(0, target_proto_index.size(0), dtype=torch.long),
-                target_proto_index,
-            ].squeeze()
-            all_distances = all_distances.view(
-                all_distances.size(0), all_distances.size(1), -1
-            )
-            distance_at_anchor = all_distances[
-                torch.arange(0, all_distances.size(0), dtype=torch.long),
-                :,
-                anchor_index,
-            ]
-
-            # For each non-target prototype
-            # compute difference compared to the closest target prototype
-            # d(a, p) - d(a, n) term from TripletMarginLoss
-            distance_pos_neg = (
-                min_distance_target - distance_at_anchor
-            ) * prototypes_of_wrong_class
-            # Separation cost is the margin loss
-            # max(d(a, p) - d(a, n) + margin, 0)
-            separation_cost = torch.mean(
-                torch.maximum(
-                    distance_pos_neg + args.coefs["sep_margin"],
-                    torch.tensor(0.0, device=distance_pos_neg.device),
+                separation_cost = torch.mean(
+                    max_dist - inverted_distances_to_nontarget_prototypes
                 )
-            )
-        else:
-            raise ValueError(
-                f"separation_type has to be one of [max, mean, margin], "
-                f"got {args.separation_type}"
-            )
+            elif args.separation_type == "avg":
+                min_distances_detached_prototype_vectors = (
+                    model.module.prototype_min_distances(input_, detach_prototypes=True)[0]
+                )
+                # calculate avg cluster cost
+                avg_separation_cost = torch.sum(
+                    min_distances_detached_prototype_vectors * prototypes_of_wrong_class,
+                    dim=1,
+                ) / torch.sum(prototypes_of_wrong_class, dim=1)
+                avg_separation_cost = torch.mean(avg_separation_cost)
 
-        if use_l1_mask:
+                l2 = (
+                    torch.mm(
+                        model.module.prototype_vectors[:, :, 0, 0],
+                        model.module.prototype_vectors[:, :, 0, 0].t(),
+                    )
+                    - torch.eye(args.prototype_shape[0]).cuda()
+                ).norm(p=2)
+
+                separation_cost = avg_separation_cost
+            elif args.separation_type == "margin":
+                # For each input get the distance
+                # to the closest target class prototype
+                min_distance_target = max_dist - inverted_distances.reshape((-1, 1))
+
+                all_distances = additional_out.distances
+                min_indices = additional_out.min_indices
+
+                anchor_index = min_indices[
+                    torch.arange(0, target_proto_index.size(0), dtype=torch.long),
+                    target_proto_index,
+                ].squeeze()
+                all_distances = all_distances.view(
+                    all_distances.size(0), all_distances.size(1), -1
+                )
+                distance_at_anchor = all_distances[
+                    torch.arange(0, all_distances.size(0), dtype=torch.long),
+                    :,
+                    anchor_index,
+                ]
+
+                # For each non-target prototype
+                # compute difference compared to the closest target prototype
+                # d(a, p) - d(a, n) term from TripletMarginLoss
+                distance_pos_neg = (
+                    min_distance_target - distance_at_anchor
+                ) * prototypes_of_wrong_class
+                # Separation cost is the margin loss
+                # max(d(a, p) - d(a, n) + margin, 0)
+                separation_cost = torch.mean(
+                    torch.maximum(
+                        distance_pos_neg + args.coefs["sep_margin"],
+                        torch.tensor(0.0, device=distance_pos_neg.device),
+                    )
+                )
+            else:
+                raise ValueError(
+                    f"separation_type has to be one of [max, mean, margin], "
+                    f"got {args.separation_type}"
+                )
+
+        if use_l1_mask and hasattr(model.module, "prototype_class_identity"):
             l1_mask = 1 - torch.t(model.module.prototype_class_identity).cuda()
             l1 = (model.module.last_layer.weight * l1_mask).norm(p=1)
         else:
             l1 = model.module.last_layer.weight.norm(p=1)
 
     else:
-        min_distance, _ = torch.min(additional_out.min_distances, dim=1)
-        cluster_cost = torch.mean(min_distance)
+        if args.coefs["clst"] != 0:
+            min_distance, _ = torch.min(additional_out.min_distances, dim=1)
+            cluster_cost = torch.mean(min_distance)
         l1 = model.module.last_layer.weight.norm(p=1)
 
     # compute gradient and do SGD step
@@ -409,7 +413,8 @@ def joint(model, log):
         p.requires_grad = True
     for p in model.module.add_on_layers.parameters():
         p.requires_grad = True
-    model.module.prototype_vectors.requires_grad = True
+    if hasattr(model.module, "prototype_vectors"):
+        model.module.prototype_vectors.requires_grad = True
     for p in model.module.last_layer.parameters():
         p.requires_grad = True
 
