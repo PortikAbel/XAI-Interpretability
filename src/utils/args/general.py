@@ -119,6 +119,11 @@ class GeneralModelParametersParser(argparse.ArgumentParser):
             "there is a separate test or validation directory. "
             "Should be between 0 and 1. Used for partimagenet (e.g. 0.2)",
         )
+        dataset_group.add_argument(
+            "--disable_normalize",
+            action="store_true",
+            help="Flag that disables normalization of the images",
+        )
 
         image_size_group = dataset_group.add_argument_group(
             "Image size",

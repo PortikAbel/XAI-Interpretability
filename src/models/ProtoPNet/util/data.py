@@ -170,7 +170,11 @@ def get_datasets(log: Log, args: argparse.Namespace):
 
 
 def get_transforms(args: argparse.Namespace):
-    normalize = A.Normalize(mean=args.mean, std=args.std, max_pixel_value=1.0, p=1.0)
+    if args.disable_normalize:
+        normalize = A.NoOp()
+    else:
+        normalize = A.Normalize(mean=args.mean, std=args.std, max_pixel_value=1.0)
+
     base_transform = A.Compose(
         [
             A.ToFloat(max_value=256),
