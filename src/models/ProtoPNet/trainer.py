@@ -261,7 +261,6 @@ def _train_explainable_model(log, tensorboard_writer, args):
                         log=log,
                         tensorboard_writer=tensorboard_writer,
                     )
-                    epoch += 1
 
     save.save_model_w_condition(
         model=ppnet_multi.module,
