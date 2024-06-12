@@ -191,7 +191,7 @@ def _train_explainable_model(log, tensorboard_writer, args):
         log.info(f"{'warm ' if epoch <=args.epochs_warm else ''}"
                  f"epoch: \t{epoch} / "
                  f"{args.epochs_warm if epoch <= args.epochs_warm else args.n_epochs}")
-        if epoch < args.epochs_warm:
+        if epoch <= args.epochs_warm:
             tnt.warm_only(model=ppnet_multi, log=log)
             optimizer = warm_optimizer
         else:
@@ -248,7 +248,7 @@ def _train_explainable_model(log, tensorboard_writer, args):
             if args.prototype_activation_function != "linear":
                 tnt.last_only(model=ppnet_multi, log=log)
                 for i in range(args.epochs_finetune):
-                    log.info(f"finetune iteration: \t{i} / {args.epochs_finetune}")
+                    log.info(f"finetune iteration: \t{i + 1} / {args.epochs_finetune}")
                     accu = train_protopnet(
                         args=args,
                         epoch=epoch,
