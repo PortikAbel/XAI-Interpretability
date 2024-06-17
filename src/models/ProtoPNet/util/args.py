@@ -99,6 +99,12 @@ def define_parser():
         help="Number of prototypes per class.",
     )
     prototype_parameter_group.add_argument(
+        "--prototype_depth",
+        type=int,
+        default=256,
+        help="Depth of the prototypes."
+    )
+    prototype_parameter_group.add_argument(
         "--prototype_activation_function",
         type=str,
         default="log",
@@ -319,7 +325,7 @@ class ProtoPNetArgumentParser(ModelArgumentParser):
 
         cls._args.prototype_shape = (
             cls._args.n_prototypes_per_class * cls._args.num_classes,
-            256,
+            cls._args.prototype_depth,
             1,
             1,
         )
