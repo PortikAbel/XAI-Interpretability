@@ -72,8 +72,8 @@ def accuracy_protocol(model, args):
 
     transforms = None
 
-    test_dataset = FunnyBirds(args.data, "test", transform=transforms)
-    test_loader = DataLoader(test_dataset, batch_size=args.batch_size, shuffle=False)
+    test_dataset = FunnyBirds(args.data_dir, "test", transform=transforms)
+    test_loader = DataLoader(test_dataset, batch_size=int(args.batch_size), shuffle=False)
 
     top1 = AverageMeter("Acc@1", ":6.2f")
     top5 = AverageMeter("Acc@5", ":6.2f")
@@ -81,9 +81,9 @@ def accuracy_protocol(model, args):
     for samples in tqdm(test_loader):
         images = samples["image"]
         target = samples["target"]
-        if args.gpu is not None:
-            images = images.cuda(args.gpu, non_blocking=True)
-            target = target.cuda(args.gpu, non_blocking=True)
+        if not args.disable_gpu:
+            images = images.cuda(args.device_ids[0], non_blocking=True)
+            target = target.cuda(args.device_ids[0], non_blocking=True)
 
         # compute output
         output = model(images)

@@ -8,7 +8,7 @@ def controlled_synthetic_data_check_protocol(model, explainer, args):
     transforms = None
 
     test_dataset = FunnyBirds(
-        args.data, "test", get_part_map=True, transform=transforms
+        args.data_dir, "test", get_part_map=True, transform=transforms
     )
     test_loader = DataLoader(test_dataset, batch_size=1, shuffle=False)
 
@@ -21,10 +21,10 @@ def controlled_synthetic_data_check_protocol(model, explainer, args):
         images = samples["image"]
         target = samples["target"]
         part_maps = samples["part_map"]
-        if args.gpu is not None:
-            images = images.cuda(args.gpu, non_blocking=True)
-            part_maps = part_maps.cuda(args.gpu, non_blocking=True)
-            target = target.cuda(args.gpu, non_blocking=True)
+        if not args.disable_gpu:
+            images = images.cuda(args.device_ids[0], non_blocking=True)
+            part_maps = part_maps.cuda(args.device_ids[0], non_blocking=True)
+            target = target.cuda(args.device_ids[0], non_blocking=True)
 
         # make sure that model correctly classifies instance
         output = model(images)

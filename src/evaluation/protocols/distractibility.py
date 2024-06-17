@@ -29,10 +29,10 @@ def distractibility_protocol(model, explainer, args):
         class_name = sample["class_name"].item()
         image_idx = sample["image_idx"].item()
         params = test_dataset.get_params_for_single(params)
-        if args.gpu is not None:
-            image = image.cuda(args.gpu, non_blocking=True)
-            part_map = part_map.cuda(args.gpu, non_blocking=True)
-            target = target.cuda(args.gpu, non_blocking=True)
+        if not args.disable_gpu:
+            image = image.cuda(args.device_ids[0], non_blocking=True)
+            part_map = part_map.cuda(args.device_ids[0], non_blocking=True)
+            target = target.cuda(args.device_ids[0], non_blocking=True)
         score = {}
 
         output = model(image)
@@ -46,7 +46,7 @@ def distractibility_protocol(model, explainer, args):
                 class_name, image_idx, [remove_part]
             )["image"]
 
-            image2 = image2.cuda(args.gpu, non_blocking=True)
+            image2 = image2.cuda(args.device_ids[0], non_blocking=True)
             output = model(image2)
 
             score[remove_part.split("_")[0]] = output[
@@ -61,7 +61,7 @@ def distractibility_protocol(model, explainer, args):
                 "image"
             ]
 
-            image2 = image2.cuda(args.gpu, non_blocking=True)
+            image2 = image2.cuda(args.device_ids[0], non_blocking=True)
             output = model(image2)
 
             score["bg_" + str(i).zfill(3)] = output[0, target].item()

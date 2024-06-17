@@ -26,10 +26,10 @@ def preservation_check_protocol(model, explainer, args):
         class_name = samples["class_name"].item()
         image_idx = samples["image_idx"].item()
         params = test_dataset.get_params_for_single(params)
-        if args.gpu is not None:
-            images = images.cuda(args.gpu, non_blocking=True)
-            part_maps = part_maps.cuda(args.gpu, non_blocking=True)
-            target = target.cuda(args.gpu, non_blocking=True)
+        if not args.disable_gpu:
+            images = images.cuda(args.device_ids[0], non_blocking=True)
+            part_maps = part_maps.cuda(args.device_ids[0], non_blocking=True)
+            target = target.cuda(args.device_ids[0], non_blocking=True)
 
         output = model(images)
         model_prediction_original = output.argmax(1)
@@ -50,7 +50,7 @@ def preservation_check_protocol(model, explainer, args):
             image2 = test_dataset.get_intervention(
                 class_name, image_idx, parts_removed
             )["image"]
-            image2 = image2.cuda(args.gpu, non_blocking=True)
+            image2 = image2.cuda(args.device_ids[0], non_blocking=True)
             output2 = model(image2)
             model_prediction_removed = output2.argmax(1)
 

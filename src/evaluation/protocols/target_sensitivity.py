@@ -16,7 +16,7 @@ def target_sensitivity_protocol(model, explainer, args):
     transforms = None
 
     test_dataset = FunnyBirds(
-        args.data, "test", get_part_map=True, transform=transforms
+        args.data_dir, "test", get_part_map=True, transform=transforms
     )
     test_loader = DataLoader(test_dataset, batch_size=1, shuffle=False)
 
@@ -30,14 +30,12 @@ def target_sensitivity_protocol(model, explainer, args):
         image = sample["image"]
         target = sample["target"]
         part_map = sample["part_map"]
-        params = sample["params"]
         class_name = sample["class_name"].item()
         image_idx = sample["image_idx"].item()
-        params = test_dataset.get_params_for_single(params)
-        if args.gpu is not None:
-            image = image.cuda(args.gpu, non_blocking=True)
-            part_map = part_map.cuda(args.gpu, non_blocking=True)
-            target = target.cuda(args.gpu, non_blocking=True)
+        if not args.disable_gpu:
+            image = image.cuda(args.device_ids[0], non_blocking=True)
+            part_map = part_map.cuda(args.device_ids[0], non_blocking=True)
+            target = target.cuda(args.device_ids[0], non_blocking=True)
 
         output = model(image)
 
@@ -64,8 +62,8 @@ def target_sensitivity_protocol(model, explainer, args):
             if found_classes:
                 break
 
-        class1 = torch.tensor([class1]).cuda(args.gpu, non_blocking=True)
-        class2 = torch.tensor([class2]).cuda(args.gpu, non_blocking=True)
+        class1 = torch.tensor([class1]).cuda(args.device_ids[0], non_blocking=True)
+        class2 = torch.tensor([class2]).cuda(args.device_ids[0], non_blocking=True)
 
         # skip sample if assumption does not hold
         # class a: removing A parts should result in larger drop than removing B parts
@@ -75,13 +73,13 @@ def target_sensitivity_protocol(model, explainer, args):
         image2 = test_dataset.get_intervention(
             class_name, image_idx, overlap_target_class1
         )["image"]
-        image2 = image2.cuda(args.gpu, non_blocking=True)
+        image2 = image2.cuda(args.device_ids[0], non_blocking=True)
         output_wo_parts_from_class1 = model(image2)
 
         image2 = test_dataset.get_intervention(
             class_name, image_idx, overlap_target_class2
         )["image"]
-        image2 = image2.cuda(args.gpu, non_blocking=True)
+        image2 = image2.cuda(args.device_ids[0], non_blocking=True)
         output_wo_parts_from_class2 = model(image2)
 
         drop_class1_when_rm_class1_parts = (

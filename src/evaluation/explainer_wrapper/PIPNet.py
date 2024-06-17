@@ -15,7 +15,7 @@ class PIPNetExplainer(AbstractAttributionExplainer):
         model: PyTorch model.
     """
 
-    def __init__(self, model, explainer):
+    def __init__(self, model, explainer=None):
         """
         A wrapper for PIPNet explanations.
         Args:

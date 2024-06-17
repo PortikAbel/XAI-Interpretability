@@ -56,9 +56,11 @@ class ProtoPNetExplainer(AbstractAttributionExplainer):
 
         idx = 0
 
-        logits, min_distances = self.model(image, return_min_distances=True)
+        logits, additional_outs = self.model(image, return_min_distances=True)
         conv_output, distances = self.model.model.push_forward(image)
-        prototype_activations = self.model.model.distance_2_similarity(min_distances)
+        prototype_activations = self.model.model.distance_2_similarity(
+            additional_outs.min_distances
+        )
         prototype_activation_patterns = self.model.model.distance_2_similarity(
             distances
         )
