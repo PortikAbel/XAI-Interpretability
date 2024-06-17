@@ -8,7 +8,6 @@ from captum.attr import InputXGradient, IntegratedGradients
 
 import models.PIPNet.pipnet as model_pipnet
 import models.ProtoPNet.model as model_ppnet
-from data.config import dataset_config
 from evaluation.explainer_wrapper.captum import CaptumAttributionExplainer
 from evaluation.explainer_wrapper.PIPNet import PIPNetExplainer
 from evaluation.explainer_wrapper.ProtoPNet import ProtoPNetExplainer
@@ -25,14 +24,10 @@ from evaluation.protocols import (
     single_deletion_protocol,
     target_sensitivity_protocol,
 )
-from models.PIPNet.util.args import get_args as get_pipnet_args
 from models.resnet import resnet50
 from models.vgg import vgg16
 
 parser = argparse.ArgumentParser(description="FunnyBirds - Explanation Evaluation")
-parser.add_argument(
-    "--data", type=Path, required=True, help="path to dataset (default: imagenet)"
-)
 parser.add_argument(
     "--model",
     required=True,
@@ -51,27 +46,13 @@ parser.add_argument(
     help="explainer",
 )
 parser.add_argument(
-    "--epoch_number",
-    type=int,
-    required=False,
-    help="Epoch number of model checkpoint to use.",
-)
-parser.add_argument(
     "--checkpoint_path",
     type=Path,
     required=False,
     default=None,
     help="path to trained model checkpoint",
-),
-
-parser.add_argument("--gpu", default=0, type=int, help="GPU id to use.")
-parser.add_argument("--seed", default=0, type=int, help="seed")
-parser.add_argument(
-    "--batch_size",
-    default=16,
-    type=int,
-    help="batch size for protocols that do not require custom BS such as accuracy",
 )
+
 parser.add_argument(
     "--nr_itrs",
     default=2501,
@@ -128,10 +109,27 @@ parser.add_argument(
 
 def main():
     args, _ = parser.parse_known_args()
-    device = "cuda:" + str(args.gpu)
 
-    random.seed(args.seed)
-    torch.manual_seed(args.seed)
+    match args.model:
+        case "ProtoPNet":
+            from models.ProtoPNet.util.args import (
+                ProtoPNetArgumentParser as ModelArgumentParser,
+            )
+        case "PIPNet":
+            from models.PIPNet.util.args import \
+                PIPNetArgumentParser as ModelArgumentParser
+        case _:
+            raise ValueError(f"Unknown model: {args.model}")
+
+    model_args = ModelArgumentParser.get_args()
+
+    if model_args.disable_gpu:
+        device = "cpu"
+    else:
+        device = "cuda:" + model_args.gpu_ids.split(",")[0]
+
+    random.seed(model_args.seed)
+    torch.manual_seed(model_args.seed)
 
     # create model
     if args.model == "resnet50":
@@ -141,14 +139,16 @@ def main():
         model = vgg16(num_classes=50)
         model = StandardModel(model)
     elif args.model == "ProtoPNet":
-        base_architecture = "resnet50"
-        img_size = 256
-        prototype_shape = (50 * 10, 128, 1, 1)
-        num_classes = dataset_config["num_classes"]
-        prototype_activation_function = "log"
-        add_on_layers_type = "regular"
+        base_architecture = model_args.net
+        img_size = model_args.image_height
+        prototype_shape = (
+            model_args.num_classes * model_args.n_prototypes_per_class, 128, 1, 1
+        )
+        num_classes = model_args.num_classes
+        prototype_activation_function = model_args.prototype_activation_function
+        add_on_layers_type = model_args.add_on_layers_type
         load_model_dir = args.checkpoint_path.parent
-        epoch_number = args.epoch_number
+        epoch_number = model_args.epochs
 
         print("REMEMBER TO ADJUST PROTOPNET PATH AND EPOCH")
         model = model_ppnet.construct_PPNet(
@@ -161,29 +161,29 @@ def main():
             prototype_activation_function=prototype_activation_function,
             add_on_layers_type=add_on_layers_type,
         )
+        model = nn.DataParallel(model, device_ids=list(map(int, model_args.gpu_ids)))
         model = ProtoPNetModel(model, load_model_dir, epoch_number)
     elif args.model == "PIPNet":
-        num_classes = dataset_config["num_classes"]
-        pipnet_args = get_pipnet_args()
+        num_classes = model_args.num_classes
         (
             feature_net,
             add_on_layers,
             pool_layer,
             classification_layer,
             num_prototypes,
-        ) = model_pipnet.get_network(num_classes, pipnet_args)
+        ) = model_pipnet.get_network(num_classes, model_args)
 
         # Create a PIP-Net
         model = model_pipnet.PIPNet(
             num_classes=num_classes,
             num_prototypes=num_prototypes,
             feature_net=feature_net,
-            args=pipnet_args,
+            args=model_args,
             add_on_layers=add_on_layers,
             pool_layer=pool_layer,
             classification_layer=classification_layer,
         )
-        model = nn.DataParallel(model, device_ids=list(map(int, pipnet_args.gpu_ids)))
+        model = nn.DataParallel(model, device_ids=list(map(int, model_args.gpu_ids)))
         model = PipNetModel(model)
     else:
         print("Model not implemented")
