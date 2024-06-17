@@ -44,10 +44,10 @@ class ResNet_features(nn.Module):
             block=block, planes=128, num_blocks=self.layers[1], stride=2
         )
         self.layer3 = self._make_layer(
-            block=block, planes=256, num_blocks=self.layers[2], stride=1
+            block=block, planes=256, num_blocks=self.layers[2], stride=2
         )
         self.layer4 = self._make_layer(
-            block=block, planes=512, num_blocks=self.layers[3], stride=1
+            block=block, planes=512, num_blocks=self.layers[3], stride=2
         )
 
         # initialize the parameters
