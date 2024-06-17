@@ -62,10 +62,10 @@ class RandomForeground(torch.nn.Module):
 class FunnyBirds(datasets.ImageFolder):
     """FunnyBirds dataset."""
 
-    def __init__(self, root_dir, mode, get_part_map: bool = False, transform=None):
+    def __init__(self, root_dir: Path, mode, get_part_map: bool = False, transform=None):
         """
         Args:
-            root_dir (string): Directory with all the images. E.g. ./datasets/FunnyBirds
+            root_dir: Directory with all the images. E.g. ./datasets/FunnyBirds
             transform (callable, optional): Optional transform to be applied
                 on a sample.
         """

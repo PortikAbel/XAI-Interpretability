@@ -174,6 +174,7 @@ class GeneralModelParametersParser(argparse.ArgumentParser):
         args.img_shape = np.array((args.image_height, args.image_width))
         args.num_classes = dataset_config["num_classes"]
         args.color_channels = dataset_config["color_channels"]
+        args.data_dir = dataset_config["data_dir"]
         args.train_dir = dataset_config["train_dir"]
         args.train_dir_projection = dataset_config.get(
             "train_dir_projection", args.train_dir
