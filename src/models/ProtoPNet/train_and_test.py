@@ -305,7 +305,7 @@ def compute_loss_components(
         )
         tensorboard_writer.add_scalar(f"Loss/{phase}/l1", l1.item(), step)
         tensorboard_writer.add_scalar(f"Loss/{phase}/l2", l2.item(), step)
-        tensorboard_writer.add_scalar(f"Loss/{phase}/Accuracy", acc, step)
+        tensorboard_writer.add_scalar(f"Accuracy/{phase}", acc, step)
 
     return loss, cross_entropy, cluster_cost, l1, l2, separation_cost
 
