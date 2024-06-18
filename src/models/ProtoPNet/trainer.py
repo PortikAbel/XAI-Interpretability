@@ -242,7 +242,7 @@ def _train_explainable_model(log, tensorboard_writer, args):
                 model_name=f"{epoch}_push_",
                 class_specific=class_specific,
                 log=log,
-                tensorboard_writer=tensorboard_writer,
+                tensorboard_writer=None,
             )
 
             if args.prototype_activation_function != "linear":
