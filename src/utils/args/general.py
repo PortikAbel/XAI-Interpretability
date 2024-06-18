@@ -153,7 +153,8 @@ class GeneralModelParametersParser(argparse.ArgumentParser):
         """
         if backbone_network is not None:
             model_name = f"{model_name}/{backbone_network}"
-        args.log_dir = Path(get_env("PROJECT_ROOT"), "runs", model_name, args.log_dir)
+        results_location = get_env("RESULTS_LOCATION", must_exist=False) or get_env("PROJECT_ROOT")
+        args.log_dir = Path(results_location, "runs", model_name, args.log_dir)
         args.log_dir = args.log_dir.resolve()
         args.log_dir.mkdir(parents=True, exist_ok=True)
 
