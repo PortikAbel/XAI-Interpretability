@@ -152,19 +152,23 @@ def create_model(args: argparse.Namespace):
         num_classes = dataset_config["num_classes"]
         prototype_activation_function = "log"
         add_on_layers_type = "regular"
-        load_model_dir = args.checkpoint_path.parent
+        load_model_dir = args.checkpoint_path.parent.parent
         epoch_number = args.epoch_number
 
         print("REMEMBER TO ADJUST PROTOPNET PATH AND EPOCH")
-        model = model_ppnet.construct_PPNet(
-            base_architecture=base_architecture,
-            pretrained=True,
-            img_size=img_size,
-            prototype_shape=prototype_shape,
-            num_classes=num_classes,
-            prototype_activation_function=prototype_activation_function,
-            add_on_layers_type=add_on_layers_type,
-        )
+        
+        if args.checkpoint_path:
+            model = torch.load(args.checkpoint_path, map_location=torch.device("cpu"))
+        else:
+            model = model_ppnet.construct_PPNet(
+                base_architecture=base_architecture,
+                pretrained=True,
+                img_size=img_size,
+                prototype_shape=prototype_shape,
+                num_classes=num_classes,
+                prototype_activation_function=prototype_activation_function,
+                add_on_layers_type=add_on_layers_type,
+            )
         model = ProtoPNetModel(model, load_model_dir, epoch_number)
     elif args.model == "PIPNet":
         num_classes = dataset_config["num_classes"]
@@ -192,7 +196,7 @@ def create_model(args: argparse.Namespace):
     else:
         print("Model not implemented")
 
-    if args.checkpoint_path:
+    if args.checkpoint_path and args.model != "ProtoPNet":
         state_dict = torch.load(args.checkpoint_path, map_location=torch.device("cpu"))
         model.load_state_dict(state_dict["model_state_dict"])
     model = model.to(device)
