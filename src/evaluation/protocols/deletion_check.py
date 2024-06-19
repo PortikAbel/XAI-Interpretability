@@ -8,7 +8,7 @@ def deletion_check_protocol(model, explainer, args):
     transforms = None
 
     test_dataset = FunnyBirds(
-        args.data, "test", get_part_map=True, transform=transforms
+        args.data_dir, "test", get_part_map=True, transform=transforms
     )
     test_loader = DataLoader(test_dataset, batch_size=1, shuffle=False)
 

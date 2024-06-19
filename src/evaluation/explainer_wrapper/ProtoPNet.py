@@ -57,18 +57,21 @@ class ProtoPNetExplainer(AbstractAttributionExplainer):
         idx = 0
 
         logits, additional_outs = self.model(image, return_min_distances=True)
-        conv_output, distances = self.model.model.push_forward(image)
-        prototype_activations = self.model.model.distance_2_similarity(
+        model = self.model.model
+        if type(model) is torch.nn.DataParallel:
+            model = model.module
+        conv_output, distances = model.push_forward(image)
+        prototype_activations = model.distance_2_similarity(
             additional_outs.min_distances
         )
-        prototype_activation_patterns = self.model.model.distance_2_similarity(
+        prototype_activation_patterns = model.distance_2_similarity(
             distances
         )
 
         target_class = target[idx]
 
         class_prototype_indices = np.nonzero(
-            self.model.model.prototype_class_identity.detach()
+            model.prototype_class_identity.detach()
             .cpu()
             .numpy()[:, target_class]
         )[0]
@@ -91,8 +94,8 @@ class ProtoPNetExplainer(AbstractAttributionExplainer):
             self.prototype_idxs.append(prototype_index)
 
             prototype = plt.imread(
-                self.load_model_dir
-                / "img"
+                self.load_model_dir.parent
+                / "visualization_results"
                 / f"epoch-{self.epoch_number}"
                 / f"prototype-img{prototype_index.item()}.png"
             )
@@ -124,7 +127,7 @@ class ProtoPNetExplainer(AbstractAttributionExplainer):
 
             inference_image_mask = mask.to(image.device)
             similarity_score = prototype_activations[idx][prototype_index]
-            class_connection = self.model.model.last_layer.weight[target_class][
+            class_connection = model.last_layer.weight[target_class][
                 prototype_index
             ]
             attribution += inference_image_mask * similarity_score * class_connection

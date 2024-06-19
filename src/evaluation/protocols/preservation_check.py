@@ -8,7 +8,7 @@ def preservation_check_protocol(model, explainer, args):
     transforms = None
 
     test_dataset = FunnyBirds(
-        args.data, "test", get_part_map=True, transform=transforms
+        args.data_dir, "test", get_part_map=True, transform=transforms
     )
     test_loader = DataLoader(test_dataset, batch_size=1, shuffle=False)
 
@@ -20,16 +20,12 @@ def preservation_check_protocol(model, explainer, args):
     number_valid_samples = 0
     for samples in tqdm(test_loader):
         images = samples["image"]
-        target = samples["target"]
         part_maps = samples["part_map"]
-        params = samples["params"]
         class_name = samples["class_name"].item()
         image_idx = samples["image_idx"].item()
-        params = test_dataset.get_params_for_single(params)
         if not args.disable_gpu:
             images = images.cuda(args.device_ids[0], non_blocking=True)
             part_maps = part_maps.cuda(args.device_ids[0], non_blocking=True)
-            target = target.cuda(args.device_ids[0], non_blocking=True)
 
         output = model(images)
         model_prediction_original = output.argmax(1)
