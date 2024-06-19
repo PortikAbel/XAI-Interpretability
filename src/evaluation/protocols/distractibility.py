@@ -11,7 +11,7 @@ def distractibility_protocol(model, explainer, args):
 
     # first get scores for different removed parts and original image
     test_dataset = FunnyBirds(
-        args.data, "test", get_part_map=True, transform=transforms
+        args.data_dir, "test", get_part_map=True, transform=transforms
     )
     test_loader = DataLoader(test_dataset, batch_size=1, shuffle=False)
 

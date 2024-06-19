@@ -132,7 +132,7 @@ def _train_explainable_model(log, tensorboard_writer, args):
     # if prototype_activation_function == 'linear':
     #    ppnet.set_last_layer_incorrect_connection(incorrect_strength=0)
     ppnet = ppnet.cuda()
-    ppnet_multi = torch.nn.DataParallel(ppnet)
+    ppnet_multi = torch.nn.DataParallel(ppnet, args.device_ids)
     class_specific = True
 
     joint_optimizer_specs = [
