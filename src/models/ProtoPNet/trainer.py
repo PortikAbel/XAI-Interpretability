@@ -110,6 +110,9 @@ def _train_explainable_model(log, tensorboard_writer, args):
         classes,
     ) = get_dataloaders(log, args)
 
+    tensorboard_writer.add_text(f"Training steps: {len(train_loader)}")
+    tensorboard_writer.add_text(f"Test steps: {len(test_loader)}")
+
     # we should look into distributed sampler more carefully
     # at torch.utils.data.distributed.DistributedSampler(train_dataset)
     log.info(f"training set size: {len(train_loader.dataset)}")
@@ -256,11 +259,12 @@ def _train_explainable_model(log, tensorboard_writer, args):
                         optimizer=last_layer_optimizer,
                         train_loader=train_loader,
                         test_loader=test_loader,
-                        model_name=f"{epoch}_push_{i}_",
+                        model_name=f"{epoch}_finetune_",
                         class_specific=class_specific,
                         log=log,
                         tensorboard_writer=tensorboard_writer,
                     )
+                    epoch += 1
 
     save.save_model_w_condition(
         model=ppnet_multi.module,

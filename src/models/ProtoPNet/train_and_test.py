@@ -42,6 +42,7 @@ def _train_or_test(
     n_examples = 0
     n_correct = 0
     n_batches = 0
+    total_loss = 0
     total_cross_entropy = 0
     total_cluster_cost = 0
     # separation cost is meaningful only for class_specific
@@ -88,6 +89,7 @@ def _train_or_test(
             n_correct += (predicted == target_).sum().item()
 
             n_batches += 1
+            total_loss += loss.item()
             total_cross_entropy += cross_entropy.item()
             total_cluster_cost += cluster_cost.item()
             total_separation_cost += separation_cost.item()
@@ -101,12 +103,15 @@ def _train_or_test(
 
     end = time.time()
 
+    accuracy = n_correct / n_examples
+
     log.info(f"\t\t{'time:':13}{end - start}")
+    log.info(f"\t\t{'loss:':13}{total_loss / n_batches}")
     log.info(f"\t\t{'cross ent:':13}{total_cross_entropy / n_batches}")
     log.info(f"\t\t{'cluster:':13}{total_cluster_cost / n_batches}")
     if class_specific:
         log.info(f"\t\t{'separation:':13}{total_separation_cost / n_batches}")
-    log.info(f"\t\t{'accu:':13}{n_correct / n_examples:.2%}")
+    log.info(f"\t\t{'accu:':13}{accuracy :.2%}")
     log.info(
         f"\t\t{'micro f1:':13}"
         f"{f1_score(true_labels, predicted_labels, average='micro')}"
@@ -122,7 +127,29 @@ def _train_or_test(
             p_avg_pair_dist = torch.mean(list_of_distances(p, p))
         log.info(f"\t\tp dist pair: {p_avg_pair_dist.item()}")
 
-    return n_correct / n_examples
+    if tensorboard_writer:
+        if is_train:
+            if is_pretrain:
+                phase = "pretrain"
+            else:
+                phase = "train"
+        else:
+            phase = "test"
+
+        tensorboard_writer.add_scalar(f"Loss/epoch/{phase}/total", total_loss / n_batches, epoch)
+        tensorboard_writer.add_scalar(
+            f"Loss/epoch/{phase}/cross entropy", total_cross_entropy / n_batches, epoch
+        )
+        tensorboard_writer.add_scalar(
+            f"Loss/epoch/{phase}/cluster cost", total_cluster_cost / n_batches, epoch
+        )
+        tensorboard_writer.add_scalar(
+            f"Loss/epoch/{phase}/separation cost", total_separation_cost / n_batches, epoch
+        )
+        tensorboard_writer.add_scalar(f"Loss/epoch/{phase}/l1", model.module.last_layer.weight.norm(p=1).item(), epoch)
+        tensorboard_writer.add_scalar(f"Accuracy/epoch/{phase}", accuracy, epoch)
+
+    return accuracy
 
 
 def compute_loss_components(
@@ -293,19 +320,19 @@ def compute_loss_components(
         else:
             phase = "test"
 
-        tensorboard_writer.add_scalar(f"Loss/{phase}/loss", loss.item(), step)
+        tensorboard_writer.add_scalar(f"Loss/step/{phase}/total", loss.item(), step)
         tensorboard_writer.add_scalar(
-            f"Loss/{phase}/cross entropy", cross_entropy.item(), step
+            f"Loss/step/{phase}/cross entropy", cross_entropy.item(), step
         )
         tensorboard_writer.add_scalar(
-            f"Loss/{phase}/cluster cost", cluster_cost.item(), step
+            f"Loss/step/{phase}/cluster cost", cluster_cost.item(), step
         )
         tensorboard_writer.add_scalar(
-            f"Loss/{phase}/separation cost", separation_cost.item(), step
+            f"Loss/step/{phase}/separation cost", separation_cost.item(), step
         )
-        tensorboard_writer.add_scalar(f"Loss/{phase}/l1", l1.item(), step)
-        tensorboard_writer.add_scalar(f"Loss/{phase}/l2", l2.item(), step)
-        tensorboard_writer.add_scalar(f"Accuracy/{phase}", acc, step)
+        tensorboard_writer.add_scalar(f"Loss/step/{phase}/l1", l1.item(), step)
+        tensorboard_writer.add_scalar(f"Loss/step/{phase}/l2", l2.item(), step)
+        tensorboard_writer.add_scalar(f"Accuracy/step/{phase}", acc, step)
 
     return loss, cross_entropy, cluster_cost, l1, l2, separation_cost
 

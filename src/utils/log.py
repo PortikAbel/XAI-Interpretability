@@ -4,25 +4,17 @@ import typing
 from pathlib import Path
 
 
-class Log(logging.Logger):
-    """
-    Object for managing the log directory
-    """
-
+class BasicLog(logging.Logger):
     def __init__(
         self, log_dir: Path, name: str, disable_console: bool = False
     ):  # Store log in log_dir
         super().__init__(name)
         self._log_dir = log_dir
-        self._logs = dict()
-
-        self._log_file = self._log_dir / "log.txt"
-        self._tqdm_file = (self._log_dir / "tqdm.txt").open(mode="w")
 
         # Ensure the directories exist
-        self.log_dir.mkdir(parents=True, exist_ok=True)
-        self.metadata_dir.mkdir(parents=True, exist_ok=True)
-        self.checkpoint_dir.mkdir(parents=True, exist_ok=True)
+        self._log_dir.mkdir(parents=True, exist_ok=True)
+
+        self._log_file = self._log_dir / "log.txt"
 
         if self._log_file.is_file():
             # make log file empty if it already exists
@@ -42,20 +34,8 @@ class Log(logging.Logger):
             self.addHandler(stream_handler)
 
     @property
-    def tqdm_file(self):
-        return self._tqdm_file
-
-    @property
     def log_dir(self):
         return self._log_dir
-
-    @property
-    def checkpoint_dir(self):
-        return self._log_dir / "checkpoints"
-
-    @property
-    def metadata_dir(self):
-        return self._log_dir / "metadata"
 
     def _log(
         self,
@@ -116,6 +96,36 @@ class Log(logging.Logger):
         """
         self.error(f"{type(msg).__name__} {msg}")
         self.error(traceback.format_exc())
+
+
+class Log(BasicLog):
+    """
+    Object for managing the log directory
+    """
+
+    def __init__(
+        self, log_dir: Path, name: str, disable_console: bool = False
+    ):  # Store log in log_dir
+        super().__init__(log_dir, name, disable_console)
+        self._logs = dict()
+
+        self._tqdm_file = (self._log_dir / "tqdm.txt").open(mode="w")
+
+        # Ensure the directories exist
+        self.metadata_dir.mkdir(parents=True, exist_ok=True)
+        self.checkpoint_dir.mkdir(parents=True, exist_ok=True)
+
+    @property
+    def tqdm_file(self):
+        return self._tqdm_file
+
+    @property
+    def checkpoint_dir(self):
+        return self._log_dir / "checkpoints"
+
+    @property
+    def metadata_dir(self):
+        return self._log_dir / "metadata"
 
     def create_log(self, log_name: str, key_name: str, *value_names):
         """

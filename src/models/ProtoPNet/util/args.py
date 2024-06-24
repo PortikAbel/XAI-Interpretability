@@ -354,6 +354,7 @@ class ProtoPNetArgumentParser(ModelArgumentParser):
             )
 
             cls._args.push_epochs = set(cls._args.push_epochs)
+            cls._args.n_epochs += len(cls._args.push_epochs) * cls._args.epochs_finetune
             cls._args.push_epochs.add(
                 cls._args.n_epochs
             )  # add the last epoch to the push epochs
