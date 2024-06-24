@@ -328,7 +328,7 @@ def train_protopnet(
         model_dir=log.checkpoint_dir,
         model_name=model_name,
         accu=accu,
-        target_accu=0.60,
+        target_accu=0.60 if not args.save_all_models else 0.0,
         log=log,
     )
 

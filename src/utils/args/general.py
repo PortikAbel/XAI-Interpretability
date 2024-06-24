@@ -101,6 +101,11 @@ class GeneralModelParametersParser(argparse.ArgumentParser):
             default="visualization_results",
             help="Directory for saving the prototypes and explanations",
         )
+        log_group.add_argument(
+            "--save_all_models",
+            action="store_true",
+            help="Flag to save the model in each epoch"
+        )
 
         dataset_group = self.add_argument_group(
             "Dataset", "Specifies the dataset to use and its hyperparameters"
