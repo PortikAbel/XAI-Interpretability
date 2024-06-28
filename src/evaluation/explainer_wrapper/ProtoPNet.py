@@ -24,6 +24,8 @@ class ProtoPNetExplainer(AbstractAttributionExplainer):
         """
         self.model = model
         self.load_model_dir = model.load_model_dir
+        if self.load_model_dir.is_file():
+            self.load_model_dir = self.load_model_dir.parent
         self.epoch_number = model.epoch_number
         self.dilation = nn.MaxPool2d(1, stride=1, padding=0)
 
@@ -94,7 +96,7 @@ class ProtoPNetExplainer(AbstractAttributionExplainer):
             self.prototype_idxs.append(prototype_index)
 
             prototype = plt.imread(
-                self.load_model_dir.parent
+                self.load_model_dir
                 / "visualization_results"
                 / f"epoch-{self.epoch_number}"
                 / f"prototype-img{prototype_index.item()}.png"

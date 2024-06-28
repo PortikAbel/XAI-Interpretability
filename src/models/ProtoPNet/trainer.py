@@ -110,8 +110,8 @@ def _train_explainable_model(log, tensorboard_writer, args):
         classes,
     ) = get_dataloaders(log, args)
 
-    tensorboard_writer.add_text(f"Training steps: {len(train_loader)}")
-    tensorboard_writer.add_text(f"Test steps: {len(test_loader)}")
+    tensorboard_writer.add_text("Step size", f"Training steps: {len(train_loader)}")
+    tensorboard_writer.add_text("Step size", f"Test steps: {len(test_loader)}")
 
     # we should look into distributed sampler more carefully
     # at torch.utils.data.distributed.DistributedSampler(train_dataset)

@@ -15,6 +15,7 @@ from evaluation.protocols import accuracy_protocol, \
     deletion_check_protocol, background_independence_protocol
 from models.ProtoPNet.model import construct_PPNet
 
+
 parser = ArgumentParser(description="FunnyBirds - Explanation Evaluation")
 parser.add_argument(
     "--model",
@@ -41,19 +42,11 @@ parser.add_argument(
     help="path to trained model checkpoint",
 )
 parser.add_argument(
-    "--epoch_number",
-    type=int,
-    required=False,
-    help="Epoch number of model checkpoint to use.",
-)
-
-parser.add_argument(
     "--nr_itrs",
     default=2501,
     type=int,
     help="batch size for protocols that do not require custom BS such as accuracy",
 )
-
 parser.add_argument(
     "--accuracy", default=False, action="store_true",
     help="compute accuracy"
@@ -199,7 +192,7 @@ def evaluate(checkpoint_path, epoch, args):
                                                                    all_args)
         background_independence = round(background_independence, 5)
 
-    # select completeness and distractability thresholds
+    # select completeness and distractibility thresholds
     # such that they maximize the sum of both
     max_score = 0
     best_threshold = -1
@@ -214,6 +207,9 @@ def evaluate(checkpoint_path, epoch, args):
             max_score = max_score_tmp
             best_threshold = threshold
 
+    del explainer
+    del model
+
     return [accuracy, csdc[best_threshold], pc[best_threshold],
             dc[best_threshold], distractibility[best_threshold],
             background_independence, sd, ts, best_threshold]
@@ -222,24 +218,23 @@ def evaluate(checkpoint_path, epoch, args):
 def main():
     args, _ = parser.parse_known_args()
 
-    p = Path(
-        "/tankstorage/user_data/adel.bajcsi/results/Funny/runs/ProtoPNet/vgg16/2024-06-19-00-39-28/checkpoints/")
-
-    checkpoints = [x for x in p.iterdir() if
+    checkpoints = [x for x in args.checkpoint_path.iterdir() if
                    x.is_file() and x.suffix == ".pth" and x.name[0].isdigit()]
+    checkpoints.sort(key=lambda cp: int(re.match(r"^([0-9]+)_.*", cp.stem).group(1)))
 
-    checkpoints.sort(key=lambda cp: int(re.match(r"([0-9]{2})_.*", cp.stem).group(1)))
+    data_table = pd.DataFrame(
+        columns=[
+            "accuracy", "csdc", "pc", "dc", "distractibility",
+            "background_independence", "sd", "ts", "threshold"
+        ],
+        index=pd.Index([], name="epoch"),
+    )
 
-    data_table = pd.read_csv("metrics.csv", header=0, index_col=0)
-
-    after_push = True
+    after_push = False
     epoch = None
-    last_push_epoch = 62
+    last_push_epoch = 0
     for cp in checkpoints:
         current_epoch = int(re.match(r"([0-9]{2})_.*", cp.stem).group(1))
-        if current_epoch <= 62:
-            epoch = current_epoch
-            continue
         if "_push_" in cp.stem:
             after_push = True
             last_push_epoch = current_epoch
