@@ -1,6 +1,7 @@
 import argparse
 import random
 import sys
+
 from pathlib import Path
 
 import torch
@@ -9,11 +10,13 @@ from torch.utils.data import DataLoader
 
 from captum.attr import IntegratedGradients, InputXGradient
 
+from models.resnet import resnet18, resnet34, resnet50
+from models.vgg import vgg11, vgg16
+from models.convnext import convnext_tiny
+
 from data.config import dataset_config
 from data.funny_birds import FunnyBirds
 from models.PIPNet.util.args import get_args as get_pipnet_args
-from models.resnet import resnet50
-from models.vgg import vgg16
 import models.ProtoPNet.model as model_ppnet
 import models.PIPNet.pipnet as model_pipnet
 from evaluation.model_wrapper.base import AbstractModel
@@ -33,6 +36,10 @@ from evaluation.protocols import (
 from evaluation.explainer_wrapper.captum import CaptumAttributionExplainer
 from evaluation.explainer_wrapper.ProtoPNet import ProtoPNetExplainer
 from evaluation.explainer_wrapper.PIPNet import PIPNetExplainer
+from evaluation.explainer_wrapper.GradCam import GradCamExplainer
+
+import torchvision.transforms as transforms
+from data.config import DATASETS
 
 
 parser = argparse.ArgumentParser(description="FunnyBirds - Explanation Evaluation")
@@ -48,7 +55,7 @@ parser.add_argument(
 parser.add_argument(
     "--model",
     required=True,
-    choices=["resnet50", "vgg16", "vit_b_16", "ProtoPNet", "PIPNet"],
+    choices=["resnet50", "vgg16", "vit_b_16", "ProtoPNet", "PIPNet", "post_hoc"],
     help="model architecture",
 )
 parser.add_argument(
@@ -59,6 +66,7 @@ parser.add_argument(
         "InputXGradient",
         "ProtoPNet",
         "PIPNet",
+        "GradCam"
     ],
     help="explainer",
 )
@@ -137,6 +145,12 @@ parser.add_argument(
     help="compute background dependence",
 )
 
+parser.add_argument(
+    "--backbone",
+    type=str,
+    help="backbone architecture",
+)
+
 
 def create_model(args: argparse.Namespace):
     if args.model == "resnet50":
@@ -193,12 +207,28 @@ def create_model(args: argparse.Namespace):
         )
         model = nn.DataParallel(model, device_ids=list(map(int, pipnet_args.gpu_ids)))
         model = PipNetModel(model)
+    elif args.model == "post_hoc":
+        num_classes = dataset_config["num_classes"]
+
+        if args.backbone == 'resnet18':
+            model = resnet18(num_classes=num_classes)
+        elif args.backbone == 'resnet34':
+            model = resnet34(num_classes=num_classes)
+        elif args.backbone == 'vgg11':
+            model = vgg11(num_classes=num_classes)
+        elif args.backbone == 'vgg16':
+            model = vgg16(num_classes=num_classes)
+        elif args.backbone == 'convnext':
+            model = convnext_tiny(num_classes=num_classes, pretrained=True)
+        
+        model = StandardModel(model)
     else:
         print("Model not implemented")
 
     if args.checkpoint_path and args.model != "ProtoPNet":
         state_dict = torch.load(args.checkpoint_path, map_location=torch.device("cpu"))
         model.load_state_dict(state_dict["model_state_dict"])
+
     model = model.to(device)
     model.eval()
 
@@ -217,15 +247,25 @@ def create_explainer(explainer_type: str, model: AbstractModel):
         return ProtoPNetExplainer(model)
     if explainer_type == "PIPNet":
         return PIPNetExplainer(model)
+    if explainer_type == 'GradCam':
+        class_name = model.model.__class__.__name__.lower()
+        if class_name == 'resnet':
+            return GradCamExplainer(model.model, model.model.layer4[-1]) # resnet
+        elif class_name == 'vgg':
+            return GradCamExplainer(model.model, model.model.features.features[-1]) # vgg
+        elif class_name == 'convnext':
+            return GradCamExplainer(model.model, model.model.features[-1]) # convnext
+
     print("Explainer not implemented")
 
 
 def main(args: argparse.Namespace):
     model = create_model(args)
     explainer = create_explainer(args.explainer, model)
-    
+
     bathed_dataset = FunnyBirds(args.data_path, args.data_subset)
     partmap_dataset = FunnyBirds(args.data_path, args.data_subset, get_part_map=True)
+
     bathed_dataloader = DataLoader(bathed_dataset, batch_size=args.batch_size, shuffle=False)
     partmap_dataloader = DataLoader(partmap_dataset, batch_size=1, shuffle=False)
 
