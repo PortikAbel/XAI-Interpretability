@@ -7,7 +7,10 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torch import Tensor
 
-from models.features import base_architecture_to_features
+from models.features import (
+    base_architecture_to_features,
+    base_architecture_to_layer_groups,
+)
 
 
 class PIPNet(nn.Module):
@@ -55,48 +58,22 @@ class PIPNet(nn.Module):
         self.param_groups["to_train"] = []
         self.param_groups["to_freeze"] = []
 
-        if "resnet" in self._args.net:
-            # freeze resnet50 except last convolutional layer
+        if self._args.net in base_architecture_to_layer_groups.keys():
+            layer_groups = base_architecture_to_layer_groups[self._args.net]
             for name, param in self._net.named_parameters():
-                if "layer4.2" in name:
+                if any(layer in name for layer in layer_groups["to_train"]):
                     self.param_groups["to_train"].append(param)
-                elif "layer4" in name or "layer3" in name:
+                elif any(layer in name for layer in layer_groups["to_freeze"]):
                     self.param_groups["to_freeze"].append(param)
-                elif "layer2" in name:
-                    self.param_groups["backbone"].append(param)
-                else:  # such that model training fits on one gpu.
-                    param.requires_grad = False
-                    # self.param_groups["backbone"].append(param)
-
-        elif "vgg" in self._args.net:
-            import re
-
-            for name, param in self._net.named_parameters():
-                if re.match(r"^features.(18|[23]\d)", name):
-                    self.param_groups["to_train"].append(param)
-                elif re.match(r"^features.1\d", name):
-                    self.param_groups["to_freeze"].append(param)
-                elif re.match(r"^features.[5-9].", name):
+                elif any(layer in name for layer in layer_groups["backbone"]):
                     self.param_groups["backbone"].append(param)
                 else:
                     param.requires_grad = False
-
-        elif "convnext" in self._args.net:
-            for name, param in self._net.named_parameters():
-                if "features.7.2" in name:
-                    self.param_groups["to_train"].append(param)
-                elif "features.7" in name or "features.6" in name:
-                    self.param_groups["to_freeze"].append(param)
-                # CUDA MEMORY ISSUES?
-                # COMMENT LINE 202-203 AND USE THE FOLLOWING LINES INSTEAD
-                elif "features.5" in name or "features.4" in name:
-                    self.param_groups["backbone"].append(param)
-                else:
-                    param.requires_grad = False
-                # else:
-                #     self.param_groups["backbone"].append(param)
         else:
-            print("Network is not ResNet/VGG/ConvNext.", flush=True)
+            print(
+                "Layer groups not implemented for selected backbone architecture.",
+                flush=True,
+            )
         self.param_groups["classification_weight"] = []
         self.param_groups["classification_bias"] = []
         for name, param in self._classification.named_parameters():

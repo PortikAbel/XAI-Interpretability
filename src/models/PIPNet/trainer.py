@@ -1,11 +1,12 @@
-import os
 from copy import deepcopy
+from pathlib import Path
 
 import numpy as np
 import torch
 import torch.nn as nn
 from torch.utils.tensorboard import SummaryWriter
 
+from utils.environment import get_env
 import models.PIPNet.visualize.logs as visual_logs
 from models.PIPNet.pipnet import PIPNet, get_network
 from models.PIPNet.test_setp import eval_ood, eval_pipnet, get_thresholds
@@ -506,13 +507,10 @@ def train_model(log, args=None):
 
     # Evaluate prototype purity
     if args.evaluate_purity and args.dataset.startswith("CUB"):
-        projectset_img0_path = project_loader.dataset.samples[0][0]
-        project_path = os.path.split(os.path.split(projectset_img0_path)[0])[0].split(
-            "dataset"
-        )[0]
-        parts_loc_path = os.path.join(project_path, "parts/part_locs.txt")
-        parts_name_path = os.path.join(project_path, "parts/parts.txt")
-        imgs_id_path = os.path.join(project_path, "images.txt")
+        project_path = Path(get_env("DATA_ROOT"), "CUB_200")
+        parts_loc_path = project_path / "parts/part_locs.txt"
+        parts_name_path = project_path / "parts/parts.txt"
+        imgs_id_path = project_path / "images.txt"
         cubthreshold = 0.5
 
         net.eval()
@@ -593,11 +591,10 @@ def train_model(log, args=None):
             args,
             log,
         )
-        testset_img0_path = test_project_loader.dataset.samples[0][0]
-        test_path = os.path.split(os.path.split(testset_img0_path)[0])[0]
+        test_path = Path(test_project_loader.dataset.samples[0][0]).parent.parent
         vis_pred(net, test_path, classes, args.device, args)
         if args.extra_test_image_folder != "":
-            if os.path.exists(args.extra_test_image_folder):
+            if Path(args.extra_test_image_folder).exists():
                 vis_pred_experiments(
                     net, args.extra_test_image_folder, classes, args.device, args
                 )

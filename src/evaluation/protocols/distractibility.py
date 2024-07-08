@@ -1,19 +1,7 @@
 import re
-
-from torch.utils.data import DataLoader
 from tqdm import tqdm
 
-from data.funny_birds import FunnyBirds
-
-
-def distractibility_protocol(model, explainer, args):
-    transforms = None
-
-    # first get scores for different removed parts and original image
-    test_dataset = FunnyBirds(
-        args.data_dir, "test", get_part_map=True, transform=transforms
-    )
-    test_loader = DataLoader(test_dataset, batch_size=1, shuffle=False)
+def distractibility_protocol(model, dataloader, explainer, args):
 
     thresholds = explainer.get_p_thresholds()
     scores_for_thresholds = {}
@@ -21,14 +9,14 @@ def distractibility_protocol(model, explainer, args):
         scores_for_thresholds[threshold] = []
 
     number_valid_samples = 0
-    for sample in tqdm(test_loader):
+    for sample in tqdm(dataloader):
         image = sample["image"]
         target = sample["target"]
         part_map = sample["part_map"]
         params = sample["params"]
         class_name = sample["class_name"].item()
         image_idx = sample["image_idx"].item()
-        params = test_dataset.get_params_for_single(params)
+        params = dataloader.dataset.get_params_for_single(params)
         if not args.disable_gpu:
             image = image.cuda(args.device_ids[0], non_blocking=True)
             part_map = part_map.cuda(args.device_ids[0], non_blocking=True)
@@ -39,10 +27,10 @@ def distractibility_protocol(model, explainer, args):
         original_score = output[0, target].item()
 
         # get scores for removed parts
-        bird_parts_keys = list(test_dataset.parts.keys())
+        bird_parts_keys = list(dataloader.dataset.parts.keys())
 
         for remove_part in bird_parts_keys:
-            image2 = test_dataset.get_intervention(
+            image2 = dataloader.dataset.get_intervention(
                 class_name, image_idx, [remove_part]
             )["image"]
 
@@ -57,7 +45,7 @@ def distractibility_protocol(model, explainer, args):
         bg_object_ids = [int(s) for s in re.findall(r"\b\d+\b", params[bg_keys[0]])]
 
         for i in range(len(bg_object_ids)):
-            image2 = test_dataset.get_background_intervention(class_name, image_idx, i)[
+            image2 = dataloader.dataset.get_background_intervention(class_name, image_idx, i)[
                 "image"
             ]
 
@@ -83,7 +71,7 @@ def distractibility_protocol(model, explainer, args):
             image,
             part_map,
             target,
-            test_dataset.colors_to_part,
+            dataloader.dataset.colors_to_part,
             with_bg=True,
             thresholds=thresholds,
         )

@@ -155,13 +155,15 @@ def define_parser():
     )
     loss_group.add_argument(
         "--tanh_loss",
-        action="store_true",
+        type=float,
+        default=0.0,
         help="tanh loss regulates that every prototype should be at "
-        "least oncepresent in a mini-batch.",
+        "least once present in a mini-batch.",
     )
     loss_group.add_argument(
         "--unif_loss",
-        action="store_true",
+        type=float,
+        default=0.0,
         help="Our tanh-loss optimizes for uniformity and was sufficient for our "
         "experiments. However, if pretraining of the prototypes is not working "
         "well for your dataset, you may try to add another uniformity loss "
@@ -169,7 +171,8 @@ def define_parser():
     )
     loss_group.add_argument(
         "--variance_loss",
-        action="store_true",
+        type=float,
+        default=0.0,
         help="Regularizer term that enforces variance of features from "
         "https://arxiv.org/abs/2105.04906",
     )
@@ -261,6 +264,6 @@ class PIPNetArgumentParser(ModelArgumentParser):
             and not cls._args.variance_loss
         ):
             warnings.warn(f"No loss function specified. Using tanh loss by default")
-            cls._args.tanh_loss = True
+            cls._args.tanh_loss = 5.0
 
         return cls._args

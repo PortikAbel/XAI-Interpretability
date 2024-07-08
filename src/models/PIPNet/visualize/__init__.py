@@ -119,6 +119,8 @@ def get_patch(img_path, args, h_idx, w_idx, softmaxes_size, patch_size=None, ski
     return (
         image,
         img_tensor_patch,
-        (h_coord_max, h_coord_min),
-        (w_coord_max, w_coord_min),
+        h_coord_max,
+        h_coord_min,
+        w_coord_max,
+        w_coord_min,
     )

@@ -1,32 +1,19 @@
 import re
-
-from torch.utils.data import DataLoader
 from tqdm import tqdm
 
-from data.funny_birds import FunnyBirds
-
-
-def background_independence_protocol(model, args):
-    transforms = None
-
-    # first get scores for different removed parts and original image
-    test_dataset = FunnyBirds(
-        args.data_dir, "test", get_part_map=True, transform=transforms
-    )
-    test_loader = DataLoader(test_dataset, batch_size=1, shuffle=False)
-
+def background_independence_protocol(model, dataloader, args):
     total_background_parts = 0
     number_relevant_background_parts = 0
 
     number_valid_samples = 0
-    for sample in tqdm(test_loader):
+    for sample in tqdm(dataloader):
         image = sample["image"]
         target = sample["target"]
         part_map = sample["part_map"]
         params = sample["params"]
         class_name = sample["class_name"].item()
         image_idx = sample["image_idx"].item()
-        params = test_dataset.get_params_for_single(params)
+        params = dataloader.dataset.get_params_for_single(params)
         if not args.disable_gpu:
             image = image.cuda(args.device_ids[0], non_blocking=True)
             part_map = part_map.cuda(args.device_ids[0], non_blocking=True)
@@ -40,7 +27,7 @@ def background_independence_protocol(model, args):
         bg_object_ids = [int(s) for s in re.findall(r"\b\d+\b", params[bg_keys[0]])]
 
         for i in range(len(bg_object_ids)):
-            image2 = test_dataset.get_background_intervention(class_name, image_idx, i)[
+            image2 = dataloader.dataset.get_background_intervention(class_name, image_idx, i)[
                 "image"
             ]
 

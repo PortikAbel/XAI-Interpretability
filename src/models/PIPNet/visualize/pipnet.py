@@ -3,6 +3,8 @@ import random
 from collections import defaultdict
 
 import numpy as np
+from pathlib import Path
+
 import torch
 import torch.utils.data
 import torchvision
@@ -153,7 +155,7 @@ def visualize_top_k(
                 ):  # dataset contains tuples of (img,label)
                     img_to_open = img_to_open[0]
 
-                image, img_tensor_patch, _, _ = get_patch(
+                image, img_tensor_patch, _, _, _, _ = get_patch(
                     img_to_open, args, h_idx, w_idx, softmaxes.shape
                 )
 
@@ -305,13 +307,8 @@ def visualize(
                     seen_max[p] = found_max
 
                 if found_max > 0.5:
-                    img_to_open = imgs[images_seen_before + idx_to_select]
-                    if isinstance(img_to_open, tuple) or isinstance(
-                        img_to_open, list
-                    ):  # dataset contains tuples of (img,label)
-                        img_label = img_to_open[1]
-                        img_to_open = img_to_open[0]
-
+                    img_to_open, img_label = imgs[images_seen_before + idx_to_select]
+                    img_to_open = Path(img_to_open).resolve()
                     (
                         image,
                         img_tensor_patch,
@@ -319,7 +316,7 @@ def visualize(
                         h_coord_min,
                         w_coord_max,
                         w_coord_min,
-                    ) = get_patch(img_to_open, args, h_idx, w_idx, softmaxes)
+                    ) = get_patch(img_to_open, args, h_idx, w_idx, softmaxes.shape)
                     saved[p] += 1
                     tensors_per_prototype[p].append((img_tensor_patch, found_max))
 

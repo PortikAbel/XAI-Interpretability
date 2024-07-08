@@ -1,16 +1,6 @@
-from torch.utils.data import DataLoader
 from tqdm import tqdm
 
-from data.funny_birds import FunnyBirds
-
-
-def preservation_check_protocol(model, explainer, args):
-    transforms = None
-
-    test_dataset = FunnyBirds(
-        args.data_dir, "test", get_part_map=True, transform=transforms
-    )
-    test_loader = DataLoader(test_dataset, batch_size=1, shuffle=False)
+def preservation_check_protocol(model, dataloader, explainer, args):
 
     thresholds = explainer.get_p_thresholds()
     scores_for_thresholds = {}
@@ -18,7 +8,7 @@ def preservation_check_protocol(model, explainer, args):
         scores_for_thresholds[threshold] = []
 
     number_valid_samples = 0
-    for samples in tqdm(test_loader):
+    for samples in tqdm(dataloader):
         images = samples["image"]
         part_maps = samples["part_map"]
         class_name = samples["class_name"].item()
@@ -34,16 +24,16 @@ def preservation_check_protocol(model, explainer, args):
             images,
             part_maps,
             model_prediction_original,
-            test_dataset.colors_to_part,
+            dataloader.dataset.colors_to_part,
             thresholds=thresholds,
         )
         for important_parts, threshold in zip(
             important_parts_for_thresholds, thresholds
         ):
-            all_parts = list(test_dataset.parts.keys())
+            all_parts = list(dataloader.dataset.parts.keys())
             parts_removed = list(set(all_parts) - set(important_parts))
 
-            image2 = test_dataset.get_intervention(
+            image2 = dataloader.dataset.get_intervention(
                 class_name, image_idx, parts_removed
             )["image"]
             image2 = image2.cuda(args.device_ids[0], non_blocking=True)

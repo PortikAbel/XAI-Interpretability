@@ -5,16 +5,20 @@ from argparse import ArgumentParser, Namespace
 
 import torch
 import torch.nn as nn
-from captum.attr import InputXGradient, IntegratedGradients
+from torch.utils.data import DataLoader
+
+from captum.attr import IntegratedGradients, InputXGradient
 
 import models.PIPNet.pipnet as model_pipnet
 import models.ProtoPNet.model as model_ppnet
+from data.funny_birds import FunnyBirds
 from evaluation.explainer_wrapper.captum import CaptumAttributionExplainer
 from evaluation.explainer_wrapper.PIPNet import PIPNetExplainer
+from evaluation.model_wrapper.base import AbstractModel
+from evaluation.model_wrapper.standard import StandardModel
 from evaluation.explainer_wrapper.ProtoPNet import ProtoPNetExplainer
 from evaluation.model_wrapper.PIPNet import PipNetModel
 from evaluation.model_wrapper.ProtoPNet import ProtoPNetModel
-from evaluation.model_wrapper.standard import StandardModel
 from evaluation.protocols import (
     accuracy_protocol,
     background_independence_protocol,
@@ -114,7 +118,167 @@ parser.add_argument(
 )
 
 
-def main():
+def create_model(args: Namespace):
+    if args.model == "resnet50":
+        model = resnet50(num_classes=50)
+        model = StandardModel(model)
+    elif args.model == "vgg16":
+        model = vgg16(num_classes=50)
+        model = StandardModel(model)
+    elif args.model == "ProtoPNet":
+        load_model_dir = args.checkpoint_path.parent
+
+        print("REMEMBER TO ADJUST PROTOPNET PATH AND EPOCH")
+        if args.epoch_number is None:
+            raise parser.error("Epoch number is required for ProtoPNet")
+        model = model_ppnet.construct_PPNet(
+            base_architecture=args.net,
+            backbone_only=args.backbone_only,
+            pretrained=not args.disable_pretrained,
+            img_shape=args.img_shape,
+            prototype_shape=args.prototype_shape,
+            num_classes=args.num_classes,
+            prototype_activation_function=args.prototype_activation_function,
+            add_on_layers_type=args.add_on_layers_type,
+        )
+        model = nn.DataParallel(model, device_ids=list(map(int, args.gpu_ids)))
+        model = ProtoPNetModel(model, load_model_dir, args.epoch_number)
+    elif args.model == "PIPNet":
+        num_classes = args.num_classes
+        (
+            feature_net,
+            add_on_layers,
+            pool_layer,
+            classification_layer,
+            num_prototypes,
+        ) = model_pipnet.get_network(num_classes, args)
+
+        # Create a PIP-Net
+        model = model_pipnet.PIPNet(
+            num_classes=num_classes,
+            num_prototypes=num_prototypes,
+            feature_net=feature_net,
+            args=args,
+            add_on_layers=add_on_layers,
+            pool_layer=pool_layer,
+            classification_layer=classification_layer,
+        )
+        model = nn.DataParallel(model, device_ids=list(map(int, args.gpu_ids)))
+        model = PipNetModel(model)
+    else:
+        raise NotImplementedError(f"Model {args.model!r} not implemented")
+
+    if args.checkpoint_path and args.model != "ProtoPNet":
+        state_dict = torch.load(args.checkpoint_path, map_location=torch.device("cpu"))
+        if type(state_dict) is not dict:
+            state_dict.to(args.device)
+            model.model.module = state_dict
+        else:
+            model.load_state_dict(state_dict["model_state_dict"])
+    if type(model.model) is not nn.DataParallel:
+        model.to(args.device)
+    model.eval()
+
+    return model
+
+
+def create_explainer(args: Namespace, model: AbstractModel):
+    match args.explainer:
+        case "InputXGradient":
+            explainer = InputXGradient(model)
+            return CaptumAttributionExplainer(explainer)
+        case "IntegratedGradients":
+            explainer = IntegratedGradients(model)
+            baseline = torch.zeros((1, 3, 256, 256)).to(args.device)
+            return CaptumAttributionExplainer(explainer, baseline=baseline)
+        case "ProtoPNet":
+            return ProtoPNetExplainer(model)
+        case "PIPNet":
+            return PIPNetExplainer(model)
+        case _:
+            raise NotImplementedError("Explainer not implemented")
+
+
+def main(args: Namespace):
+    model = create_model(args)
+    explainer = create_explainer(args.explainer, model)
+
+    bathed_dataset = FunnyBirds(args.data_path, args.data_subset)
+    partmap_dataset = FunnyBirds(args.data_path, args.data_subset, get_part_map=True)
+    bathed_dataloader = DataLoader(bathed_dataset, batch_size=args.batch_size, shuffle=False)
+    partmap_dataloader = DataLoader(partmap_dataset, batch_size=1, shuffle=False)
+
+    accuracy, csdc, pc, dc, distractibility, sd, ts = -1, -1, -1, -1, -1, -1, -1
+
+    if args.accuracy:
+        print("Computing accuracy...")
+        accuracy = accuracy_protocol(model, bathed_dataloader, args)
+        accuracy = round(accuracy, 5)
+
+    if args.controlled_synthetic_data_check:
+        print("Computing controlled synthetic data check...")
+        csdc = controlled_synthetic_data_check_protocol(model, partmap_dataloader, explainer, args)
+
+    if args.target_sensitivity:
+        print("Computing target sensitivity...")
+        ts = target_sensitivity_protocol(model, partmap_dataloader, explainer, args)
+        ts = round(ts, 5)
+
+    if args.single_deletion:
+        print("Computing single deletion...")
+        sd = single_deletion_protocol(model, partmap_dataloader, explainer, args)
+        sd = round(sd, 5)
+
+    if args.preservation_check:
+        print("Computing preservation check...")
+        pc = preservation_check_protocol(model, partmap_dataloader, explainer, args)
+
+    if args.deletion_check:
+        print("Computing deletion check...")
+        dc = deletion_check_protocol(model, partmap_dataloader, explainer, args)
+
+    if args.distractibility:
+        print("Computing distractibility...")
+        distractibility = distractibility_protocol(model, partmap_dataloader, explainer, args)
+
+    if args.background_independence:
+        print("Computing background independence...")
+        background_independence = background_independence_protocol(model, partmap_dataloader, args)
+        background_independence = round(background_independence, 5)
+
+    # select completeness and distractability thresholds
+    # such that they maximize the sum of both
+    max_score = 0
+    best_threshold = -1
+    for threshold in csdc.keys():
+        max_score_tmp = (
+            csdc[threshold] / 3.0
+            + pc[threshold] / 3.0
+            + dc[threshold] / 3.0
+            + distractibility[threshold]
+        )
+        if max_score_tmp > max_score:
+            max_score = max_score_tmp
+            best_threshold = threshold
+
+    print("FINAL RESULTS:")
+    print("Accuracy, Background independence, CSDC, PC, DC, Distractability, SD, TS")
+    print(
+        "{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}".format(
+            accuracy,
+            background_independence,
+            round(csdc[best_threshold], 5),
+            round(pc[best_threshold], 5),
+            round(dc[best_threshold], 5),
+            round(distractibility[best_threshold], 5),
+            sd,
+            ts,
+        )
+    )
+    print("Best threshold:", best_threshold)
+
+
+if __name__ == "__main__":
     args, _ = parser.parse_known_args()
 
     match args.model:
@@ -135,151 +299,4 @@ def main():
     random.seed(all_args.seed)
     torch.manual_seed(all_args.seed)
 
-    # create model
-    if all_args.model == "resnet50":
-        model = resnet50(num_classes=50)
-        model = StandardModel(model)
-    elif all_args.model == "vgg16":
-        model = vgg16(num_classes=50)
-        model = StandardModel(model)
-    elif all_args.model == "ProtoPNet":
-        load_model_dir = all_args.checkpoint_path.parent
-
-        print("REMEMBER TO ADJUST PROTOPNET PATH AND EPOCH")
-        if all_args.epoch_number is None:
-            raise parser.error("Epoch number is required for ProtoPNet")
-        model = model_ppnet.construct_PPNet(
-            base_architecture=all_args.net,
-            backbone_only=all_args.backbone_only,
-            pretrained=not all_args.disable_pretrained,
-            img_shape=all_args.img_shape,
-            prototype_shape=all_args.prototype_shape,
-            num_classes=all_args.num_classes,
-            prototype_activation_function=all_args.prototype_activation_function,
-            add_on_layers_type=all_args.add_on_layers_type,
-        )
-        model = nn.DataParallel(model, device_ids=list(map(int, all_args.gpu_ids)))
-        model = ProtoPNetModel(model, load_model_dir, all_args.epoch_number)
-    elif all_args.model == "PIPNet":
-        num_classes = all_args.num_classes
-        (
-            feature_net,
-            add_on_layers,
-            pool_layer,
-            classification_layer,
-            num_prototypes,
-        ) = model_pipnet.get_network(num_classes, all_args)
-
-        # Create a PIP-Net
-        model = model_pipnet.PIPNet(
-            num_classes=num_classes,
-            num_prototypes=num_prototypes,
-            feature_net=feature_net,
-            args=all_args,
-            add_on_layers=add_on_layers,
-            pool_layer=pool_layer,
-            classification_layer=classification_layer,
-        )
-        model = nn.DataParallel(model, device_ids=list(map(int, all_args.gpu_ids)))
-        model = PipNetModel(model)
-    else:
-        raise NotImplementedError(f"Model {all_args.model!r} not implemented")
-
-    if all_args.checkpoint_path:
-        state_dict = torch.load(all_args.checkpoint_path, map_location=torch.device("cpu"))
-        if type(state_dict) is not dict:
-            state_dict.to(all_args.device)
-            model.model.module = state_dict
-        else:
-            model.load_state_dict(state_dict["model_state_dict"])
-    if type(model.model) is not nn.DataParallel:
-        model.to(all_args.device)
-    model.eval()
-
-    # create explainer
-    if all_args.explainer == "InputXGradient":
-        explainer = InputXGradient(model)
-        explainer = CaptumAttributionExplainer(explainer)
-    elif all_args.explainer == "IntegratedGradients":
-        explainer = IntegratedGradients(model)
-        baseline = torch.zeros((1, 3, 256, 256)).to(all_args.device)
-        explainer = CaptumAttributionExplainer(explainer, baseline=baseline)
-    elif all_args.explainer == "ProtoPNet":
-        explainer = ProtoPNetExplainer(model)
-    elif all_args.explainer == "PIPNet":
-        explainer = PIPNetExplainer(model)
-    else:
-        raise NotImplementedError("Explainer not implemented")
-
-    accuracy, csdc, pc, dc, distractibility, sd, ts = -1, -1, -1, -1, -1, -1, -1
-
-    if all_args.accuracy:
-        print("Computing accuracy...")
-        accuracy = accuracy_protocol(model, all_args)
-        accuracy = round(accuracy, 5)
-
-    if all_args.controlled_synthetic_data_check:
-        print("Computing controlled synthetic data check...")
-        csdc = controlled_synthetic_data_check_protocol(model, explainer, all_args)
-
-    if all_args.target_sensitivity:
-        print("Computing target sensitivity...")
-        ts = target_sensitivity_protocol(model, explainer, all_args)
-        ts = round(ts, 5)
-
-    if all_args.single_deletion:
-        print("Computing single deletion...")
-        sd = single_deletion_protocol(model, explainer, all_args)
-        sd = round(sd, 5)
-
-    if all_args.preservation_check:
-        print("Computing preservation check...")
-        pc = preservation_check_protocol(model, explainer, all_args)
-
-    if all_args.deletion_check:
-        print("Computing deletion check...")
-        dc = deletion_check_protocol(model, explainer, all_args)
-
-    if all_args.distractibility:
-        print("Computing distractibility...")
-        distractibility = distractibility_protocol(model, explainer, all_args)
-
-    if all_args.background_independence:
-        print("Computing background independence...")
-        background_independence = background_independence_protocol(model, all_args)
-        background_independence = round(background_independence, 5)
-
-    # select completeness and distractability thresholds
-    # such that they maximize the sum of both
-    max_score = 0
-    best_threshold = -1
-    for threshold in csdc.keys():
-        max_score_tmp = (
-            csdc[threshold] / 3.0
-            + pc[threshold] / 3.0
-            + dc[threshold] / 3.0
-            + distractibility[threshold]
-        )
-        if max_score_tmp > max_score:
-            max_score = max_score_tmp
-            best_threshold = threshold
-
-    print("FINAL RESULTS:")
-    print("Accuracy, CSDC, PC, DC, Distractability, Background independence, SD, TS")
-    print(
-        "{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}".format(
-            accuracy,
-            round(csdc[best_threshold], 5),
-            round(pc[best_threshold], 5),
-            round(dc[best_threshold], 5),
-            round(distractibility[best_threshold], 5),
-            background_independence,
-            sd,
-            ts,
-        )
-    )
-    print("Best threshold:", best_threshold)
-
-
-if __name__ == "__main__":
-    main()
+    main(args)

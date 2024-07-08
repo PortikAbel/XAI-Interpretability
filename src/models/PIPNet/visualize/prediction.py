@@ -206,15 +206,15 @@ def __visualize_predictions(
                                 .numpy()
                             )
 
-                            save_heatmaps = cv2.applyColorMap(
+                            saved_heatmap = cv2.applyColorMap(
                                 np.uint8(255 * softmaxes_np), cv2.COLORMAP_JET
                             )
-                            save_heatmaps = np.float32(save_heatmaps) / 255
-                            save_heatmaps = save_heatmaps[
+                            saved_heatmap = np.float32(saved_heatmap) / 255
+                            saved_heatmap = saved_heatmap[
                                 ..., ::-1
                             ]  # OpenCV's BGR to RGB
                             heatmap_img = 0.2 * np.float32(
-                                save_heatmaps
+                                saved_heatmap
                             ) + 0.6 * np.float32(
                                 img_tensor.squeeze().numpy().transpose(1, 2, 0)
                             )
