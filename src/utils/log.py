@@ -1,6 +1,7 @@
 import logging
 import traceback
 import typing
+import warnings
 from pathlib import Path
 
 
@@ -32,6 +33,12 @@ class BasicLog(logging.Logger):
             stream_handler = logging.StreamHandler()
             stream_handler.setFormatter(log_formatter)
             self.addHandler(stream_handler)
+
+        warnings.showwarning = lambda message, *_: self.warning(
+            f"{type(message).__name__}: {message}"
+        )
+
+        self.info(f"Log dir: {self.log_dir}")
 
     @property
     def log_dir(self):

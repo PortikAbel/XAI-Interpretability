@@ -33,11 +33,6 @@ model_args = ModelArgumentParser.get_args()
 
 # Create a logger
 log = Log(model_args.log_dir, __name__, not args.enable_console)
-log.info(f"Log dir: {model_args.log_dir}")
-
-warnings.showwarning = lambda message, *_: log.warning(
-    f"{type(message).__name__}: {message}"
-)
 
 # Log the run arguments
 ModelArgumentParser.save_args(log.metadata_dir)

@@ -19,6 +19,7 @@ from evaluation.model_wrapper.standard import StandardModel
 from evaluation.explainer_wrapper.ProtoPNet import ProtoPNetExplainer
 from evaluation.model_wrapper.PIPNet import PipNetModel
 from evaluation.model_wrapper.ProtoPNet import ProtoPNetModel
+from utils.file_operations import get_package
 from evaluation.protocols import (
     accuracy_protocol,
     background_independence_protocol,
@@ -31,8 +32,17 @@ from evaluation.protocols import (
 )
 from models.resnet import resnet50
 from models.vgg import vgg16
+from utils.environment import get_env
+from utils.log import BasicLog
 
 parser = ArgumentParser(description="FunnyBirds - Explanation Evaluation")
+parser.add_argument(
+    "--data_subset",
+    choices=["train", "test"],
+    default="test",
+    type=str,
+    help="Subset of data to use."
+)
 parser.add_argument(
     "--model",
     required=True,
@@ -63,7 +73,6 @@ parser.add_argument(
     required=False,
     help="Epoch number of model checkpoint to use.",
 )
-
 parser.add_argument(
     "--nr_itrs",
     default=2501,
@@ -115,6 +124,9 @@ parser.add_argument(
     default=False,
     action="store_true",
     help="compute background dependence",
+)
+parser.add_argument(
+    "--enable_console", action="store_true", help="Enable console output"
 )
 
 
@@ -168,7 +180,7 @@ def create_model(args: Namespace):
     else:
         raise NotImplementedError(f"Model {args.model!r} not implemented")
 
-    if args.checkpoint_path and args.model != "ProtoPNet":
+    if args.checkpoint_path:
         state_dict = torch.load(args.checkpoint_path, map_location=torch.device("cpu"))
         if type(state_dict) is not dict:
             state_dict.to(args.device)
@@ -199,50 +211,50 @@ def create_explainer(args: Namespace, model: AbstractModel):
             raise NotImplementedError("Explainer not implemented")
 
 
-def main(args: Namespace):
+def main(args: Namespace, log: BasicLog):
     model = create_model(args)
-    explainer = create_explainer(args.explainer, model)
+    explainer = create_explainer(args, model)
 
-    bathed_dataset = FunnyBirds(args.data_path, args.data_subset)
-    partmap_dataset = FunnyBirds(args.data_path, args.data_subset, get_part_map=True)
-    bathed_dataloader = DataLoader(bathed_dataset, batch_size=args.batch_size, shuffle=False)
+    bathed_dataset = FunnyBirds(args.data_dir, args.data_subset)
+    partmap_dataset = FunnyBirds(args.data_dir, args.data_subset, get_part_map=True)
+    bathed_dataloader = DataLoader(bathed_dataset, batch_size=int(args.batch_size), shuffle=False)
     partmap_dataloader = DataLoader(partmap_dataset, batch_size=1, shuffle=False)
 
     accuracy, csdc, pc, dc, distractibility, sd, ts = -1, -1, -1, -1, -1, -1, -1
 
     if args.accuracy:
-        print("Computing accuracy...")
+        log.info("Computing accuracy...")
         accuracy = accuracy_protocol(model, bathed_dataloader, args)
         accuracy = round(accuracy, 5)
 
     if args.controlled_synthetic_data_check:
-        print("Computing controlled synthetic data check...")
+        log.info("Computing controlled synthetic data check...")
         csdc = controlled_synthetic_data_check_protocol(model, partmap_dataloader, explainer, args)
 
     if args.target_sensitivity:
-        print("Computing target sensitivity...")
+        log.info("Computing target sensitivity...")
         ts = target_sensitivity_protocol(model, partmap_dataloader, explainer, args)
         ts = round(ts, 5)
 
     if args.single_deletion:
-        print("Computing single deletion...")
+        log.info("Computing single deletion...")
         sd = single_deletion_protocol(model, partmap_dataloader, explainer, args)
         sd = round(sd, 5)
 
     if args.preservation_check:
-        print("Computing preservation check...")
+        log.info("Computing preservation check...")
         pc = preservation_check_protocol(model, partmap_dataloader, explainer, args)
 
     if args.deletion_check:
-        print("Computing deletion check...")
+        log.info("Computing deletion check...")
         dc = deletion_check_protocol(model, partmap_dataloader, explainer, args)
 
     if args.distractibility:
-        print("Computing distractibility...")
+        log.info("Computing distractibility...")
         distractibility = distractibility_protocol(model, partmap_dataloader, explainer, args)
 
     if args.background_independence:
-        print("Computing background independence...")
+        log.info("Computing background independence...")
         background_independence = background_independence_protocol(model, partmap_dataloader, args)
         background_independence = round(background_independence, 5)
 
@@ -261,9 +273,9 @@ def main(args: Namespace):
             max_score = max_score_tmp
             best_threshold = threshold
 
-    print("FINAL RESULTS:")
-    print("Accuracy, Background independence, CSDC, PC, DC, Distractability, SD, TS")
-    print(
+    log.info("FINAL RESULTS:")
+    log.info("Accuracy, Background independence, CSDC, PC, DC, Distractability, SD, TS")
+    log.info(
         "{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}".format(
             accuracy,
             background_independence,
@@ -275,7 +287,7 @@ def main(args: Namespace):
             ts,
         )
     )
-    print("Best threshold:", best_threshold)
+    log.info("Best threshold:", best_threshold)
 
 
 if __name__ == "__main__":
@@ -296,7 +308,22 @@ if __name__ == "__main__":
 
     all_args = Namespace(**vars(args), **vars(model_args))
 
+    results_location = get_env("RESULTS_LOCATION", must_exist=False) or get_env(
+        "PROJECT_ROOT")
+    dir_name = f"{all_args.model}-{all_args.net}"
+    if all_args.checkpoint_path:
+        to_output_dir = all_args.checkpoint_path
+        if to_output_dir.is_file():
+            to_output_dir = to_output_dir.parent
+        dir_name += f"-{to_output_dir.name}"
+
+    all_args.log_dir = Path(results_location, "runs", get_package(__file__), dir_name)
+    all_args.log_dir = all_args.log_dir.resolve()
+
+    # Create a logger
+    log = BasicLog(all_args.log_dir, __name__, not args.enable_console)
+
     random.seed(all_args.seed)
     torch.manual_seed(all_args.seed)
 
-    main(args)
+    main(all_args, log)
