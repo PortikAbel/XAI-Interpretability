@@ -12,7 +12,7 @@ Submitted to ACTA UNIVERSITATIS SAPIENTIAE, Informatica, 2024.
 
 ## Post-hoc methods
 
-Post-hoc methods (e.g. GradCAM) can use any CNN backbone. The script [train_posthoc.py](https://github.com/PortikAbel/XAI-Interpretability/blob/main/src/models/post_hoc/train_posthoc.py) 
+Post-hoc methods (e.g. GradCAM) can use any CNN backbone (`models/post_hoc`). The script [train_posthoc.py](https://github.com/PortikAbel/XAI-Interpretability/blob/main/src/models/post_hoc/train_posthoc.py) 
 can be used to train such CNN backbones, and at the present supports the architectures ResNet18, ResNet34, VGG11, VGG16 and ConvNeXt-Tiny, however, it can be easily extended 
 (in this case the evaluation script has to be extended as well).
 
