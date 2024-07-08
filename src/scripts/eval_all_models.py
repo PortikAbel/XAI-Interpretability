@@ -234,7 +234,7 @@ def main():
     epoch = None
     last_push_epoch = 0
     for cp in checkpoints:
-        current_epoch = int(re.match(r"([0-9]{2})_.*", cp.stem).group(1))
+        current_epoch = int(re.match(r"([0-9]+)_.*", cp.stem).group(1))
         if "_push_" in cp.stem:
             after_push = True
             last_push_epoch = current_epoch
