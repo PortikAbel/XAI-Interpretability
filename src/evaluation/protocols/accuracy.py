@@ -4,7 +4,7 @@ from enum import Enum
 import torch
 
 
-def accuracy_protocol(model, dataloader, args):
+def accuracy_protocol(model, dataloader, args, log):
     class Summary(Enum):
         NONE = 0
         AVERAGE = 1
@@ -85,7 +85,7 @@ def accuracy_protocol(model, dataloader, args):
         top1.update(acc1[0], images.size(0))
         top5.update(acc5[0], images.size(0))
 
-    print(top1)
-    print(top5)
+    log.info(top1)
+    log.info(top5)
 
     return top1.avg.item() / 100

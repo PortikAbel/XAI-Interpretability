@@ -1,7 +1,7 @@
 import re
 from tqdm import tqdm
 
-def distractibility_protocol(model, dataloader, explainer, args):
+def distractibility_protocol(model, dataloader, explainer, args ,log):
 
     thresholds = explainer.get_p_thresholds()
     scores_for_thresholds = {}
@@ -93,5 +93,5 @@ def distractibility_protocol(model, dataloader, explainer, args):
             len(scores_for_thresholds[threshold]) + 1e-8
         )
 
-    print("Mean Distractibility Scores: ", scores_for_thresholds)
+    log.info(f"Mean Distractibility Scores: {scores_for_thresholds}")
     return scores_for_thresholds

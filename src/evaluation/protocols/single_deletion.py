@@ -5,7 +5,7 @@ from tqdm import tqdm
 from data.funny_birds import FunnyBirds
 
 
-def single_deletion_protocol(model, dataloader, explainer, args):
+def single_deletion_protocol(model, dataloader, explainer, args, log):
 
     correlations = []
     number_valid_samples = 0
@@ -76,5 +76,7 @@ def single_deletion_protocol(model, dataloader, explainer, args):
         if args.nr_itrs == number_valid_samples:
             break
 
-    print("Mean Single Deletion Correlation: ", sum(correlations) / len(correlations))
+    log.info(
+        f"Mean Single Deletion Correlation: {sum(correlations) / len(correlations)}"
+    )
     return sum(correlations) / len(correlations)

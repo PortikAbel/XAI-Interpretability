@@ -1,7 +1,7 @@
 import torch
 from tqdm import tqdm
 
-def target_sensitivity_protocol(model, dataloader, explainer, args):
+def target_sensitivity_protocol(model, dataloader, explainer, args, log):
     def class_overlap(parts1, parts2):
         overlap_parts = []
         for key in parts1.keys():
@@ -140,7 +140,7 @@ def target_sensitivity_protocol(model, dataloader, explainer, args):
     target_sensitivity_score = sum(target_sensitivity_score) / len(
         target_sensitivity_score
     )
-    print("Number of filtered samples:", number_assumption_wrong)
-    print("Number of valid samples:", number_valid_samples)
-    print("Target Sensitivity Score: ", target_sensitivity_score)
+    log.info(f"Number of filtered samples: {number_assumption_wrong}")
+    log.info(f"Number of valid samples: {number_valid_samples}")
+    log.info(f"Target Sensitivity Score: {target_sensitivity_score}")
     return target_sensitivity_score

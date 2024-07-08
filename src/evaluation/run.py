@@ -130,7 +130,7 @@ parser.add_argument(
 )
 
 
-def create_model(args: Namespace):
+def create_model(args: Namespace, log: BasicLog):
     if args.model == "resnet50":
         model = resnet50(num_classes=50)
         model = StandardModel(model)
@@ -140,7 +140,7 @@ def create_model(args: Namespace):
     elif args.model == "ProtoPNet":
         load_model_dir = args.checkpoint_path.parent
 
-        print("REMEMBER TO ADJUST PROTOPNET PATH AND EPOCH")
+        log.warning("REMEMBER TO ADJUST PROTOPNET PATH AND EPOCH")
         if args.epoch_number is None:
             raise parser.error("Epoch number is required for ProtoPNet")
         model = model_ppnet.construct_PPNet(
@@ -212,7 +212,7 @@ def create_explainer(args: Namespace, model: AbstractModel):
 
 
 def main(args: Namespace, log: BasicLog):
-    model = create_model(args)
+    model = create_model(args, log)
     explainer = create_explainer(args, model)
 
     bathed_dataset = FunnyBirds(args.data_dir, args.data_subset)
@@ -220,42 +220,52 @@ def main(args: Namespace, log: BasicLog):
     bathed_dataloader = DataLoader(bathed_dataset, batch_size=int(args.batch_size), shuffle=False)
     partmap_dataloader = DataLoader(partmap_dataset, batch_size=1, shuffle=False)
 
-    accuracy, csdc, pc, dc, distractibility, sd, ts = -1, -1, -1, -1, -1, -1, -1
+    accuracy, background_independence, csdc, pc, dc, distractibility, sd, ts = -1, -1, -1, -1, -1, -1, -1, -1
 
     if args.accuracy:
         log.info("Computing accuracy...")
-        accuracy = accuracy_protocol(model, bathed_dataloader, args)
+        accuracy = accuracy_protocol(model, bathed_dataloader, args, log)
         accuracy = round(accuracy, 5)
 
     if args.controlled_synthetic_data_check:
         log.info("Computing controlled synthetic data check...")
-        csdc = controlled_synthetic_data_check_protocol(model, partmap_dataloader, explainer, args)
+        csdc = controlled_synthetic_data_check_protocol(
+            model, partmap_dataloader, explainer, args, log
+        )
 
     if args.target_sensitivity:
         log.info("Computing target sensitivity...")
-        ts = target_sensitivity_protocol(model, partmap_dataloader, explainer, args)
+        ts = target_sensitivity_protocol(
+            model, partmap_dataloader, explainer, args, log
+        )
         ts = round(ts, 5)
 
     if args.single_deletion:
         log.info("Computing single deletion...")
-        sd = single_deletion_protocol(model, partmap_dataloader, explainer, args)
+        sd = single_deletion_protocol(model, partmap_dataloader, explainer, args, log)
         sd = round(sd, 5)
 
     if args.preservation_check:
         log.info("Computing preservation check...")
-        pc = preservation_check_protocol(model, partmap_dataloader, explainer, args)
+        pc = preservation_check_protocol(
+            model, partmap_dataloader, explainer, args, log
+        )
 
     if args.deletion_check:
         log.info("Computing deletion check...")
-        dc = deletion_check_protocol(model, partmap_dataloader, explainer, args)
+        dc = deletion_check_protocol(model, partmap_dataloader, explainer, args, log)
 
     if args.distractibility:
         log.info("Computing distractibility...")
-        distractibility = distractibility_protocol(model, partmap_dataloader, explainer, args)
+        distractibility = distractibility_protocol(
+            model, partmap_dataloader, explainer, args, log
+        )
 
     if args.background_independence:
         log.info("Computing background independence...")
-        background_independence = background_independence_protocol(model, partmap_dataloader, args)
+        background_independence = background_independence_protocol(
+            model, partmap_dataloader, args, log
+        )
         background_independence = round(background_independence, 5)
 
     # select completeness and distractability thresholds
@@ -287,7 +297,7 @@ def main(args: Namespace, log: BasicLog):
             ts,
         )
     )
-    log.info("Best threshold:", best_threshold)
+    log.info(f"Best threshold: {best_threshold}")
 
 
 if __name__ == "__main__":
@@ -326,4 +336,7 @@ if __name__ == "__main__":
     random.seed(all_args.seed)
     torch.manual_seed(all_args.seed)
 
-    main(all_args, log)
+    try:
+        main(all_args, log)
+    except Exception as e:
+        log.exception(e)

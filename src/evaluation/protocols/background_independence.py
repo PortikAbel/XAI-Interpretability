@@ -1,7 +1,7 @@
 import re
 from tqdm import tqdm
 
-def background_independence_protocol(model, dataloader, args):
+def background_independence_protocol(model, dataloader, args, log):
     total_background_parts = 0
     number_relevant_background_parts = 0
 
@@ -57,5 +57,5 @@ def background_independence_protocol(model, dataloader, args):
         1 - number_relevant_background_parts / total_background_parts
     )
 
-    print("Background Dependence Score: ", background_dependence)
+    log.info(f"Background Dependence Score: {background_dependence}")
     return background_dependence

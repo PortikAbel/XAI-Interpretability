@@ -1,6 +1,6 @@
 from tqdm import tqdm
 
-def deletion_check_protocol(model, dataloader, explainer, args):
+def deletion_check_protocol(model, dataloader, explainer, args, log):
 
     thresholds = explainer.get_p_thresholds()
     scores_for_thresholds = {}
@@ -63,5 +63,5 @@ def deletion_check_protocol(model, dataloader, explainer, args):
                 threshold
             ]
 
-    print("Deletion Check Scores: ", scores_for_thresholds)
+    log.info(f"Deletion Check Scores: {scores_for_thresholds}")
     return scores_for_thresholds

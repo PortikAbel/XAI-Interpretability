@@ -26,6 +26,7 @@ class ProtoPNetExplainer(AbstractAttributionExplainer):
         self.load_model_dir = model.load_model_dir
         if self.load_model_dir.is_file():
             self.load_model_dir = self.load_model_dir.parent
+        self.load_model_dir = self.load_model_dir.parent
         self.epoch_number = model.epoch_number
         self.dilation = nn.MaxPool2d(1, stride=1, padding=0)
 

@@ -1,6 +1,6 @@
 from tqdm import tqdm
 
-def controlled_synthetic_data_check_protocol(model, dataloader, explainer, args):
+def controlled_synthetic_data_check_protocol(model, dataloader, explainer, args, log):
 
     thresholds = explainer.get_p_thresholds()
     mcsdc_for_thresholds = {}
@@ -61,6 +61,6 @@ def controlled_synthetic_data_check_protocol(model, dataloader, explainer, args)
             mcsdc_for_thresholds[threshold] / number_valid_samples
         )
 
-    print("mcsdcs: ", mcsdc_for_thresholds)
+    log.info(f"mcsdcs: {mcsdc_for_thresholds}")
 
     return mcsdc_for_thresholds

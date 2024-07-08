@@ -1,6 +1,6 @@
 from tqdm import tqdm
 
-def preservation_check_protocol(model, dataloader, explainer, args):
+def preservation_check_protocol(model, dataloader, explainer, args, log):
 
     thresholds = explainer.get_p_thresholds()
     scores_for_thresholds = {}
@@ -55,5 +55,5 @@ def preservation_check_protocol(model, dataloader, explainer, args):
             scores_for_thresholds[threshold]
         )
 
-    print("Preservation Check Score: ", scores_for_thresholds)
+    log.info(f"Preservation Check Score: {scores_for_thresholds}")
     return scores_for_thresholds
