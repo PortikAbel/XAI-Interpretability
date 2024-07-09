@@ -312,6 +312,8 @@ def _resnet(
 
     if pretrained:
         my_dict = model_zoo.load_url(model_urls[arch], model_dir=pretrained_models_dir)
+        my_dict.pop("fc.weight")
+        my_dict.pop("fc.bias")
         model.load_state_dict(my_dict, strict=False)
 
     return model

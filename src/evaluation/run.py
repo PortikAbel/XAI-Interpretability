@@ -15,6 +15,7 @@ from data.funny_birds import FunnyBirds
 from evaluation.explainer_wrapper.captum import CaptumAttributionExplainer
 from evaluation.explainer_wrapper.PIPNet import PIPNetExplainer
 from evaluation.model_wrapper.base import AbstractModel
+from evaluation.explainer_wrapper.GradCam import GradCamExplainer
 from evaluation.model_wrapper.standard import StandardModel
 from evaluation.explainer_wrapper.ProtoPNet import ProtoPNetExplainer
 from evaluation.model_wrapper.PIPNet import PipNetModel
@@ -30,8 +31,9 @@ from evaluation.protocols import (
     single_deletion_protocol,
     target_sensitivity_protocol,
 )
-from models.resnet import resnet50
-from models.vgg import vgg16
+from models.resnet import resnet50, resnet18, resnet34
+from models.vgg import vgg16, vgg11
+from models.convnext import convnext_tiny
 from utils.environment import get_env
 from utils.log import BasicLog
 
@@ -46,7 +48,7 @@ parser.add_argument(
 parser.add_argument(
     "--model",
     required=True,
-    choices=["resnet50", "vgg16", "vit_b_16", "ProtoPNet", "PIPNet"],
+    choices=["resnet50", "vgg16", "vit_b_16", "ProtoPNet", "PIPNet", "post_hoc"],
     help="model architecture",
 )
 parser.add_argument(
@@ -57,6 +59,7 @@ parser.add_argument(
         "InputXGradient",
         "ProtoPNet",
         "PIPNet",
+        "GradCam"
     ],
     help="explainer",
 )
@@ -129,6 +132,12 @@ parser.add_argument(
     "--enable_console", action="store_true", help="Enable console output"
 )
 
+parser.add_argument(
+    "--backbone",
+    type=str,
+    help="backbone architecture",
+)
+
 
 def create_model(args: Namespace, log: BasicLog):
     if args.model == "resnet50":
@@ -177,6 +186,21 @@ def create_model(args: Namespace, log: BasicLog):
         )
         model = nn.DataParallel(model, device_ids=list(map(int, args.gpu_ids)))
         model = PipNetModel(model)
+    elif args.model == "post_hoc":
+        num_classes = args.num_classes
+
+        if args.backbone == 'resnet18':
+            model = resnet18(num_classes=num_classes)
+        elif args.backbone == 'resnet34':
+            model = resnet34(num_classes=num_classes)
+        elif args.backbone == 'vgg11':
+            model = vgg11(num_classes=num_classes)
+        elif args.backbone == 'vgg16':
+            model = vgg16(num_classes=num_classes)
+        elif args.backbone == 'convnext':
+            model = convnext_tiny(num_classes=num_classes, pretrained=True)
+
+        model = StandardModel(model)
     else:
         raise NotImplementedError(f"Model {args.model!r} not implemented")
 
@@ -207,6 +231,25 @@ def create_explainer(args: Namespace, model: AbstractModel):
             return ProtoPNetExplainer(model)
         case "PIPNet":
             return PIPNetExplainer(model)
+        case "GradCam":
+            class_name = args.net.lower()
+            match class_name:
+                case "resnet":
+                    return GradCamExplainer(
+                        model.model, model.model.layer4[-1]
+                    )  # resnet
+                case "vgg":
+                    return GradCamExplainer(
+                        model.model, model.model.features.features[-1]
+                    )  # vgg
+                case "convnext":
+                    return GradCamExplainer(
+                        model.model, model.model.features[-1]
+                    )  # convnext
+                case _:
+                    NotImplementedError(
+                        f"Standard network {class_name} is not implemented."
+                    )
         case _:
             raise NotImplementedError("Explainer not implemented")
 
@@ -217,6 +260,7 @@ def main(args: Namespace, log: BasicLog):
 
     bathed_dataset = FunnyBirds(args.data_dir, args.data_subset)
     partmap_dataset = FunnyBirds(args.data_dir, args.data_subset, get_part_map=True)
+
     bathed_dataloader = DataLoader(bathed_dataset, batch_size=int(args.batch_size), shuffle=False)
     partmap_dataloader = DataLoader(partmap_dataset, batch_size=1, shuffle=False)
 
