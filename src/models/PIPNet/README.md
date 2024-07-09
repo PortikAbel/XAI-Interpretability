@@ -1,6 +1,6 @@
 # Train PIP-Net
 
-PIP-Net is a model extending ProtoPNet.
+PIP-Net [^Nauta-2023-PIP-Net] is a model extending ProtoPNet.
 
 An example:
 ```shell
@@ -216,3 +216,10 @@ Specifies which evaluation metrics should be calculated
                       E.g. images with 2 objects or OOD image. Images should
                       be in subfolder. E.g. images in ./experiments/images/,
                       and argument --./experiments
+
+# References
+
+[^Nauta-2023-PIP-Net]: Nauta, M., Schlötterer, J., Van Keulen, M., & Seifert, C. (2023). 
+  Pip-net: Patch-based intuitive prototypes for interpretable image classification. 
+  In Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition (pp. 2744-2753).
+  [doi:10.1109/CVPR52729.2023.00269](https://doi.org/10.1109/CVPR52729.2023.00269)

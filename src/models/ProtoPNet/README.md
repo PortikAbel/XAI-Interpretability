@@ -1,6 +1,6 @@
 # Train ProtoPNet
 
-To train a ProtoPNet model the `--model ProtoPNet` must be set to the above-mentioned script.
+To train a ProtoPNet [^Chen-2018-ProtoPNet] model the `--model ProtoPNet` must be set to the above-mentioned script.
 For the full list of parameters see the [README](https://github.com/PortikAbel/XAI-Interpretability/blob/main/src/models/ProtoPNet/README.md) 
 in the `models/ProtoPNet` subfolder.
 
@@ -196,3 +196,10 @@ Specifies which visualizations should be generated
 > `--visualize_predictions`
                     Flag that indicates whether to visualize the
                     predictions on test data and the learned prototypes.
+
+# References
+
+[^Chen-2018-ProtoPNet]: Chen, C., Li, O., Tao, D., Barnett, A., Rudin, C., & Su, J. K. (2019).
+  This looks like that: deep learning for interpretable image recognition. 
+  Advances in neural information processing systems, 32.
+  [doi:10.48550/arXiv.1806.10574](https://doi.org/10.48550/arXiv.1806.10574)

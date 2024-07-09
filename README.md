@@ -85,7 +85,7 @@ python3 run.py --data_path data/FunnyBirds \
 
 # References:
 
-[^Selvaraju-2016-GradCam] Selvaraju, R. R., Cogswell, M., Das, A., Vedantam, R., Parikh, D., & Batra, D. (2016).
+[^Selvaraju-2016-GradCam]: Selvaraju, R. R., Cogswell, M., Das, A., Vedantam, R., Parikh, D., & Batra, D. (2016).
   Grad-CAM: Visual Explanations from Deep Networks via Gradient-based Localization. 
   [doi:10.1007/s11263-019-01228-7](https://doi.org/10.1007/s11263-019-01228-7)
 
