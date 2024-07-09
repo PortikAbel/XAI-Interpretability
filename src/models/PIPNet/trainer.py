@@ -1,5 +1,3 @@
-import random
-import sys
 from copy import deepcopy
 from pathlib import Path
 
@@ -8,12 +6,11 @@ import torch
 import torch.nn as nn
 from torch.utils.tensorboard import SummaryWriter
 
-from utils.environment import get_env
 import models.PIPNet.visualize.logs as visual_logs
 from models.PIPNet.pipnet import PIPNet, get_network
 from models.PIPNet.test_setp import eval_ood, eval_pipnet, get_thresholds
 from models.PIPNet.train_setp import train_pipnet
-from models.PIPNet.util.args import get_args, save_args
+from models.PIPNet.util.args import PIPNetArgumentParser
 from models.PIPNet.util.data import get_dataloaders
 from models.PIPNet.util.eval_cub_csv import (
     eval_prototypes_cub_parts_csv,
@@ -21,57 +18,21 @@ from models.PIPNet.util.eval_cub_csv import (
     get_topk_cub,
 )
 from models.PIPNet.util.func import init_weights_xavier
-from models.PIPNet.util.log import Log
 from models.PIPNet.visualize.pipnet import visualize, visualize_top_k
 from models.PIPNet.visualize.prediction import vis_pred, vis_pred_experiments
+from utils.environment import get_env
 
 
-def run_pipnet(args=None):
-    torch.manual_seed(args.seed)
-    torch.cuda.manual_seed_all(args.seed)
-    random.seed(args.seed)
-    np.random.seed(args.seed)
-
-    args = args or get_args()
+def train_model(log, args=None):
+    args = args or PIPNetArgumentParser.get_args()
 
     tensorboard_writer = SummaryWriter(log_dir=args.log_dir)
 
-    # Create a logger
-    log = Log(args.log_dir)
-    print("Log dir: ", args.log_dir, flush=True)
-    # Log the run arguments
-    save_args(args, log.metadata_dir)
-
-    gpu_list = args.gpu_ids.split(",")
-    device_ids = []
-    if args.gpu_ids != "":
-        for m in range(len(gpu_list)):
-            device_ids.append(int(gpu_list[m]))
-
-    global device
-    if not args.disable_cuda and torch.cuda.is_available():
-        if len(device_ids) == 1:
-            device = torch.device("cuda:{}".format(args.gpu_ids))
-        elif len(device_ids) == 0:
-            device = torch.device("cuda")
-            print("CUDA device set without id specification", flush=True)
-            device_ids.append(torch.cuda.current_device())
-        else:
-            print(
-                "This code should work with multiple GPU's "
-                "but we didn't test that, so we recommend to use only 1 GPU.",
-                flush=True,
-            )
-            device_str = ""
-            for d in device_ids:
-                device_str += str(d)
-                device_str += ","
-            device = torch.device("cuda:" + str(device_ids[0]))
-    else:
-        device = torch.device("cpu")
-
     # Log which device was actually used
-    print("Device used: ", device, "with id", device_ids, flush=True)
+    log.info(
+        f"Device used: {args.device} "
+        f"{f'with id {args.device_ids}' if len(args.device_ids) > 0 else ''}",
+    )
 
     # Obtain the dataloaders
     (
@@ -81,7 +42,7 @@ def run_pipnet(args=None):
         test_loader,
         test_project_loader,
         classes,
-    ) = get_dataloaders(args)
+    ) = get_dataloaders(log, args)
 
     if len(classes) <= 20:
         if args.validation_size == 0.0:
@@ -110,8 +71,8 @@ def run_pipnet(args=None):
         classification_layer=classification_layer,
     )
 
-    net = net.to(device=device)
-    net = nn.DataParallel(net, device_ids=device_ids)
+    net = net.to(device=args.device)
+    net = nn.DataParallel(net, device_ids=args.device_ids)
 
     optimizer_net, optimizer_classifier = net.module.get_optimizers()
 
@@ -119,7 +80,7 @@ def run_pipnet(args=None):
     with torch.no_grad():
         if args.state_dict_dir_net is not None:
             epoch = 0
-            checkpoint = torch.load(args.state_dict_dir_net, map_location=device)
+            checkpoint = torch.load(args.state_dict_dir_net, map_location=args.device)
             net.load_state_dict(checkpoint["model_state_dict"], strict=True)
             print("Pretrained network loaded", flush=True)
             net.module._multiplier.requires_grad = False
@@ -175,7 +136,7 @@ def run_pipnet(args=None):
             )
 
     # Define classification loss function and scheduler
-    criterion = nn.NLLLoss(reduction="mean").to(device)
+    criterion = nn.NLLLoss(reduction="mean").to(args.device)
     scheduler_net = torch.optim.lr_scheduler.CosineAnnealingLR(
         optimizer_net,
         T_max=len(train_loader_pretraining) * args.epochs_pretrain,
@@ -186,7 +147,7 @@ def run_pipnet(args=None):
     # Forward one batch through the backbone to get the latent output size
     with torch.no_grad():
         xs1, _, _ = next(iter(train_loader))
-        xs1 = xs1.to(device)
+        xs1 = xs1.to(args.device)
         proto_features, _, _ = net(xs1)
         wshape = np.array(proto_features.shape)[-2:]
         args.wshape = wshape  # needed for calculating image patch size
@@ -253,7 +214,7 @@ def run_pipnet(args=None):
             criterion,
             epoch,
             args,
-            device,
+            args.device,
             log,
             tensorboard_writer,
             pretrain=True,
@@ -314,7 +275,7 @@ def run_pipnet(args=None):
                 net,
                 project_loader,
                 len(classes),
-                device,
+                args.device,
                 "visualised_pretrained_prototypes_topk",
                 args,
                 log,
@@ -329,8 +290,8 @@ def run_pipnet(args=None):
         eta_min=args.lr_net / 100.0,
     )
     # scheduler for the classification layer is with restarts,
-    # such that the model can re-active zeroed-out prototypes.
-    # Hence an intuitive choice.
+    # such that the model can re-activated zeroed-out prototypes.
+    # Hence, an intuitive choice.
     if args.epochs <= 30:
         scheduler_classifier = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(
             optimizer_classifier,
@@ -353,9 +314,9 @@ def run_pipnet(args=None):
     lrs_classifier = []
 
     for epoch in range(1, args.epochs + 1):
-        # during finetuning, only train classification layer and freeze rest.
+        # during fine-tuning, only train classification layer and freeze rest.
         # usually done for a few epochs (at least 1, more depends on size of dataset)
-        if epoch <= args.epochs_to_finetune and (
+        if epoch <= args.epochs_finetune and (
             args.epochs_pretrain > 0 or args.state_dict_dir_net is not None
         ):
             net.module.finetune()
@@ -404,7 +365,7 @@ def run_pipnet(args=None):
             criterion,
             epoch,
             args,
-            device,
+            args.device,
             log,
             tensorboard_writer,
             pretrain=False,
@@ -413,7 +374,7 @@ def run_pipnet(args=None):
         lrs_net += train_info["lrs_net"]
         lrs_classifier += train_info["lrs_class"]
         # Evaluate model
-        eval_info = eval_pipnet(net, test_loader, epoch, device, log)
+        eval_info = eval_pipnet(net, test_loader, epoch, args.device, log)
         log.log_values(
             "log_epoch_overview",
             epoch,
@@ -471,7 +432,7 @@ def run_pipnet(args=None):
             net,
             project_loader,
             len(classes),
-            device,
+            args.device,
             "visualised_prototypes_topk",
             args,
             log,
@@ -492,7 +453,7 @@ def run_pipnet(args=None):
             flush=True,
         )
         eval_info = eval_pipnet(
-            net, test_loader, "notused" + str(args.epochs), device, log
+            net, test_loader, "notused" + str(args.epochs), args.device, log
         )
         log.log_values(
             "log_epoch_overview",
@@ -555,14 +516,14 @@ def run_pipnet(args=None):
         net.eval()
         print("\n\nEvaluating cub prototypes for training set", flush=True)
         csvfile_topk = get_topk_cub(
-            net, project_loader, 10, "train_" + str(epoch), device, args, log
+            net, project_loader, 10, f"train_{epoch}", args.device, args, log
         )
         eval_prototypes_cub_parts_csv(
             csvfile_topk,
             parts_loc_path,
             parts_name_path,
             imgs_id_path,
-            "train_topk_" + str(epoch),
+            f"train_topk_{epoch}",
             args,
             log,
         )
@@ -570,8 +531,8 @@ def run_pipnet(args=None):
         csvfile_all = get_proto_patches_cub(
             net,
             project_loader,
-            "train_all_" + str(epoch),
-            device,
+            f"train_all_{epoch}",
+            args.device,
             args,
             log,
             threshold=cubthreshold,
@@ -581,21 +542,21 @@ def run_pipnet(args=None):
             parts_loc_path,
             parts_name_path,
             imgs_id_path,
-            "train_all_thres" + str(cubthreshold) + "_" + str(epoch),
+            f"train_all_thres{cubthreshold}_{epoch}",
             args,
             log,
         )
 
         print("\n\nEvaluating cub prototypes for test set", flush=True)
         csvfile_topk = get_topk_cub(
-            net, test_project_loader, 10, "test_" + str(epoch), device, args, log
+            net, test_project_loader, 10, f"test_{epoch}", args.device, args, log
         )
         eval_prototypes_cub_parts_csv(
             csvfile_topk,
             parts_loc_path,
             parts_name_path,
             imgs_id_path,
-            "test_topk_" + str(epoch),
+            f"test_topk_{epoch}",
             args,
             log,
         )
@@ -603,8 +564,8 @@ def run_pipnet(args=None):
         csvfile_all = get_proto_patches_cub(
             net,
             test_project_loader,
-            "test_" + str(epoch),
-            device,
+            f"test_{epoch}",
+            args.device,
             args,
             log,
             threshold=cubthreshold,
@@ -614,7 +575,7 @@ def run_pipnet(args=None):
             parts_loc_path,
             parts_name_path,
             imgs_id_path,
-            "test_all_thres" + str(cubthreshold) + "_" + str(epoch),
+            f"test_all_thres{cubthreshold}_{epoch}",
             args,
             log,
         )
@@ -625,17 +586,17 @@ def run_pipnet(args=None):
             net,
             project_loader,
             len(classes),
-            device,
+            args.device,
             "visualised_prototypes",
             args,
             log,
         )
         test_path = Path(test_project_loader.dataset.samples[0][0]).parent.parent
-        vis_pred(net, test_path, classes, device, args)
+        vis_pred(net, test_path, classes, args.device, args)
         if args.extra_test_image_folder != "":
             if Path(args.extra_test_image_folder).exists():
                 vis_pred_experiments(
-                    net, args.extra_test_image_folder, classes, device, args
+                    net, args.extra_test_image_folder, classes, args.device, args
                 )
 
     # EVALUATE OOD DETECTION
@@ -650,18 +611,16 @@ def run_pipnet(args=None):
                 flush=True,
             )
             _, _, _, class_thresholds = get_thresholds(
-                net, test_loader, epoch, device, log, percent
+                net, test_loader, epoch, args.device, log, percent
             )
             print("Thresholds:", class_thresholds, flush=True)
             # Evaluate with in-distribution data
             id_fraction = eval_ood(
-                net, test_loader, epoch, device, class_thresholds, log
+                net, test_loader, epoch, args.device, class_thresholds, log
             )
             print(
-                "ID class threshold ID fraction (TPR) with percent",
-                percent,
-                ":",
-                id_fraction,
+                f"ID class threshold ID fraction (TPR) with "
+                f"percent {percent:.2%}: {id_fraction:.4}",
                 flush=True,
             )
 
@@ -671,42 +630,16 @@ def run_pipnet(args=None):
                     print("\n OOD dataset: ", ood_dataset, flush=True)
                     ood_args = deepcopy(args)
                     ood_args.dataset = ood_dataset
-                    _, _, _, ood_testloader, _, _ = get_dataloaders(ood_args)
+                    _, _, _, ood_test_loader, _, _ = get_dataloaders(ood_args)
 
                     id_fraction = eval_ood(
-                        net, ood_testloader, epoch, device, class_thresholds, log
+                        net, ood_test_loader, epoch, args.device, class_thresholds, log
                     )
                     print(
-                        args.dataset,
-                        "- OOD",
-                        ood_dataset,
-                        "class threshold ID fraction (FPR) with percent",
-                        percent,
-                        ":",
-                        id_fraction,
+                        f"{args.dataset} - OOD {ood_dataset} class threshold ID "
+                        f"fraction (FPR) with percent {percent:.2%}: {id_fraction:.4f}",
                         flush=True,
                     )
 
     print("Done!", flush=True)
-    log.close()
-
-
-if __name__ == "__main__":
-    args = get_args()
-    torch.manual_seed(args.seed)
-    torch.cuda.manual_seed_all(args.seed)
-    random.seed(args.seed)
-    np.random.seed(args.seed)
-
-    args.log_dir.mkdir(parents=True, exist_ok=True)
-    standard_output_file = args.log_dir / "out.txt"
-    error_output_file = args.log_dir / "error.txt"
-
-    sys.stdout.close()
-    sys.stderr.close()
-    sys.stdout = standard_output_file.open(mode="w")
-    sys.stderr = error_output_file.open(mode="w")
-    run_pipnet(args)
-
-    sys.stdout.close()
-    sys.stderr.close()
+    tensorboard_writer.close()

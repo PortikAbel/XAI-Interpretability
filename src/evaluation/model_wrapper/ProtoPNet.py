@@ -20,6 +20,3 @@ class ProtoPNetModel(AbstractModel):
             return logits
         else:
             return logits, min_distances
-
-    def load_state_dict(self, state_dict):
-        self.model.load_state_dict(state_dict)

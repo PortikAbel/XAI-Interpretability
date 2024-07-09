@@ -1,9 +1,9 @@
 import argparse
-from collections import defaultdict
 import random
-import numpy as np
+from collections import defaultdict
 from pathlib import Path
 
+import numpy as np
 import torch
 import torch.utils.data
 import torchvision
@@ -12,8 +12,8 @@ from PIL import Image
 from PIL import ImageDraw as D
 from tqdm import tqdm
 
-from models.PIPNet.util.log import Log
-from models.PIPNet.visualize import get_patch_size, get_patch
+from models.PIPNet.visualize import get_patch, get_patch_size
+from utils.log import Log
 
 
 @torch.no_grad()

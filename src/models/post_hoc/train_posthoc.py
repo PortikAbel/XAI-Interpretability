@@ -1,26 +1,14 @@
-import sys
-
-import random
-from copy import deepcopy
-from pathlib import Path
 import os
 
-import numpy as np
 import torch
 import torch.nn as nn
+from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
 
-from utils.environment import get_env
-from models.post_hoc.util.args import get_args, save_args
-from models.post_hoc.util.data import get_dataloaders, get_datasets
-from models.post_hoc.util.func import init_weights_xavier
-from models.post_hoc.util.log import Log
+from models.post_hoc.util.args import get_args
 
 import torchvision
 import torchvision.transforms as transforms
-
-from PIL import Image
-import cv2
 
 from data.config import DATASETS
 
@@ -32,8 +20,7 @@ import torch.optim as optim
 
 # from pytorch_grad_cam import GradCAM, HiResCAM, ScoreCAM, GradCAMPlusPlus, AblationCAM, XGradCAM, EigenCAM, FullGrad
 from pytorch_grad_cam.utils.model_targets import ClassifierOutputTarget
-from pytorch_grad_cam.utils.image import show_cam_on_image, deprocess_image, preprocess_image
-    
+
 
 def run_nn(args=None):
     # Define the device for training
@@ -41,19 +28,20 @@ def run_nn(args=None):
     device = torch.device(f"cuda:{gpu_id}")
 
     # CUDA device info:
-    if device.type == 'cuda':
-        print('#'*50 + '\nDevice name: {}\nMemory Usage:\nAllocated: {} GB\nCached: {} GB'.format(torch.cuda.get_device_name(0), 
-                                                                                                  round(torch.cuda.memory_allocated(0)/1024**3,1), 
-                                                                                                  round(torch.cuda.memory_reserved(0)/1024**3,1)) + '\n' + '#'*50)
+    if device.type == "cuda":
+        print(
+            "#"*50 + "\nDevice name: {}\nMemory Usage:\nAllocated: {} GB\n"
+                     "Cached: {} GB".format(
+                    torch.cuda.get_device_name(0),
+                          round(torch.cuda.memory_allocated(0) / 1024 ** 3, 1),
+                          round(torch.cuda.memory_reserved(0) / 1024 ** 3, 1)
+                     ) + "\n" + "#" * 50)
     
     # Create transforms and dataloader
     dataset_name = args.dataset
     
     dataset_config = DATASETS[dataset_name]
-    img_shape = dataset_config["img_shape"]
     num_classes = dataset_config["num_classes"]
-    mean = dataset_config["mean"]
-    std = dataset_config["std"]
 
     # Define transforms for the dataset
     transform_train = transforms.Compose(
@@ -68,56 +56,76 @@ def run_nn(args=None):
         ]
     )
     train_set = torchvision.datasets.ImageFolder(
-        dataset_config['train_dir'], transform=transform_train
+        dataset_config["train_dir"], transform=transform_train
     )
     test_set = torchvision.datasets.ImageFolder(
-        dataset_config['test_dir'], transform=transform_test
+        dataset_config["test_dir"], transform=transform_test
     )
 
     # Dataloader:
-    train_loader = torch.utils.data.DataLoader(train_set, batch_size=args.batch_size, shuffle=True)
-    test_loader = torch.utils.data.DataLoader(test_set, batch_size=args.batch_size, shuffle=False)
+    train_loader = DataLoader(
+        train_set, batch_size=args.batch_size, shuffle=True
+    )
+    test_loader = DataLoader(
+        test_set, batch_size=args.batch_size, shuffle=False
+    )
 
     pretrained = not args.disable_pretrained
 
     print(args.backbone)
 
-    if args.backbone == 'resnet18':
-        net = resnet18(num_classes=num_classes, pretrained=pretrained)
-    elif args.backbone == 'resnet34':
-        net = resnet34(num_classes=num_classes, pretrained=pretrained)
-    elif args.backbone == 'vgg11':
-        net = vgg11(num_classes=num_classes, pretrained=pretrained)
-    elif args.backbone == 'vgg16':
-        net = vgg16(num_classes=num_classes, pretrained=pretrained)
-    elif args.backbone == 'convnext':
-        net = convnext_tiny(num_classes=num_classes, pretrained=pretrained)
+    match args.backbone:
+        case "resnet18":
+            net = resnet18(num_classes=num_classes, pretrained=pretrained)
+        case "resnet34":
+            net = resnet34(num_classes=num_classes, pretrained=pretrained)
+        case "resnet50":
+            net = resnet50(num_classes=num_classes, pretrained=pretrained)
+        case "vgg11":
+            net = vgg11(num_classes=num_classes, pretrained=pretrained)
+        case "vgg13":
+            net = vgg13(num_classes=num_classes, pretrained=pretrained)
+        case "vgg16":
+            net = vgg16(num_classes=num_classes, pretrained=pretrained)
+        case "vgg19":
+            net = vgg19(num_classes=num_classes, pretrained=pretrained)
+        case "convnext":
+            net = convnext_tiny(num_classes=num_classes, pretrained=pretrained)
+        case _:
+            raise NotImplementedError(
+                f"Standard network {args.backbone!r} not implemented"
+            )
 
     net = net.to(device=device)
 
     # tensorboard:
-    tensorboard_writer = SummaryWriter(log_dir='runs/' + args.backbone)
+    tensorboard_writer = SummaryWriter(log_dir="runs/" + args.backbone)
 
-    if os.path.exists('models/model_' + args.backbone): 
+    if os.path.exists("models/model_" + args.backbone): 
         # Load model if exists:
-        checkpoint = torch.load('models/model_' + args.backbone)
-        net.load_state_dict(checkpoint['model_state_dict'])
+        checkpoint = torch.load("models/model_" + args.backbone)
+        net.load_state_dict(checkpoint["model_state_dict"])
         net.eval()
 
     else:
         # Define loss function and optimizer:
         criterion = nn.CrossEntropyLoss()
-        if args.optimizer == 'Adam':
-            optimizer = optim.Adam(net.parameters()) # resnet
-        elif args.optimizer == 'SGD':
-            optimizer = optim.SGD(net.parameters()) # vgg, convnext
+        match args.optimizer:
+            case "Adam":
+                optimizer = optim.Adam(net.parameters())  # resnet
+            case "SGD":
+                optimizer = optim.SGD(net.parameters())  # vgg, convnext
+            case _:
+                raise NotImplementedError(
+                    f"Optimizer {args.optimizer!r} not implemented"
+                )
 
         epoch_last = args.last_epoch
-        if os.path.exists('models/model_' + args.backbone + '_' + str(epoch_last)):
-            checkpoint = torch.load('models/model_' + args.backbone + '_' + str(epoch_last))
-            net.load_state_dict(checkpoint['model_state_dict'])
-            optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
-            print('...LOADED...')
+        if os.path.exists(f"models/model_{args.backbone}_{epoch_last}"):
+            checkpoint = torch.load(f"models/model_{args.backbone}_{epoch_last}")
+            net.load_state_dict(checkpoint["model_state_dict"])
+            optimizer.load_state_dict(checkpoint["optimizer_state_dict"])
+            print("...LOADED...")
         else:
             epoch_last = -1
 
@@ -149,7 +157,9 @@ def run_nn(args=None):
                 loss.backward()
                 optimizer.step()
 
-                # tensorboard_writer.add_scalar("Loss_train", loss.item(), epoch * len(train_loader) + i)
+                # tensorboard_writer.add_scalar(
+                #   "Loss_train", loss.item(), epoch * len(train_loader) + i
+                # )
 
                 running_loss += loss.item()
                 running_loss_epoch += loss.item()
@@ -166,15 +176,17 @@ def run_nn(args=None):
             accuracy = total_correct / total_samples
             print(f"Train accuracy: {accuracy:.2%}")
 
-            tensorboard_writer.add_scalar("Loss_train_epoch", running_loss_epoch / len(train_loader), epoch)
+            tensorboard_writer.add_scalar(
+                "Loss_train_epoch", running_loss_epoch / len(train_loader), epoch
+            )
 
             if (epoch+1) % args.save_step == 0:
                 torch.save({
-                    'epoch': epoch,
-                    'model_state_dict': net.state_dict(),
-                    'optimizer_state_dict': optimizer.state_dict(),
-                    'loss': criterion,
-                }, 'models/model_' + args.backbone + '_' + str(epoch))
+                    "epoch": epoch,
+                    "model_state_dict": net.state_dict(),
+                    "optimizer_state_dict": optimizer.state_dict(),
+                    "loss": criterion,
+                }, "models/model_" + args.backbone + "_" + str(epoch))
 
             # Evaluate the model on the test set:
             net.eval()
@@ -203,11 +215,11 @@ def run_nn(args=None):
 
         # Save model:
         torch.save({
-            'epoch': epoch,
-            'model_state_dict': net.state_dict(),
-            'optimizer_state_dict': optimizer.state_dict(),
-            'loss': criterion,
-            }, 'models/model_' + args.backbone)
+            "epoch": epoch,
+            "model_state_dict": net.state_dict(),
+            "optimizer_state_dict": optimizer.state_dict(),
+            "loss": criterion,
+            }, "models/model_" + args.backbone)
     ##############################################################
 
     # Evaluate the model on the test set:
@@ -230,7 +242,7 @@ def run_nn(args=None):
     ##############################################################
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     args = get_args()
 
     # print(args)

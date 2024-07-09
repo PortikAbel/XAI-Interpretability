@@ -24,6 +24,9 @@ class ProtoPNetExplainer(AbstractAttributionExplainer):
         """
         self.model = model
         self.load_model_dir = model.load_model_dir
+        if self.load_model_dir.is_file():
+            self.load_model_dir = self.load_model_dir.parent
+        self.load_model_dir = self.load_model_dir.parent
         self.epoch_number = model.epoch_number
         self.dilation = nn.MaxPool2d(1, stride=1, padding=0)
 
@@ -56,19 +59,20 @@ class ProtoPNetExplainer(AbstractAttributionExplainer):
 
         idx = 0
 
-        logits, min_distances = self.model(image, return_min_distances=True)
-        conv_output, distances = self.model.model.push_forward(image)
-        prototype_activations = self.model.model.distance_2_similarity(min_distances)
-        prototype_activation_patterns = self.model.model.distance_2_similarity(
-            distances
+        logits, additional_outs = self.model(image, return_min_distances=True)
+        model = self.model.model
+        if type(model) is torch.nn.DataParallel:
+            model = model.module
+        conv_output, distances = model.push_forward(image)
+        prototype_activations = model.distance_2_similarity(
+            additional_outs.min_distances
         )
+        prototype_activation_patterns = model.distance_2_similarity(distances)
 
         target_class = target[idx]
 
         class_prototype_indices = np.nonzero(
-            self.model.model.prototype_class_identity.detach()
-            .cpu()
-            .numpy()[:, target_class]
+            model.prototype_class_identity.detach().cpu().numpy()[:, target_class]
         )[0]
         class_prototype_activations = prototype_activations[idx][
             class_prototype_indices
@@ -90,7 +94,7 @@ class ProtoPNetExplainer(AbstractAttributionExplainer):
 
             prototype = plt.imread(
                 self.load_model_dir
-                / "img"
+                / "visualization_results"
                 / f"epoch-{self.epoch_number}"
                 / f"prototype-img{prototype_index.item()}.png"
             )
@@ -122,9 +126,7 @@ class ProtoPNetExplainer(AbstractAttributionExplainer):
 
             inference_image_mask = mask.to(image.device)
             similarity_score = prototype_activations[idx][prototype_index]
-            class_connection = self.model.model.last_layer.weight[target_class][
-                prototype_index
-            ]
+            class_connection = model.last_layer.weight[target_class][prototype_index]
             attribution += inference_image_mask * similarity_score * class_connection
 
             self.inference_image_masks.append(mask)

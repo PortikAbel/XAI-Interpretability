@@ -58,9 +58,9 @@ class CounterfactualVisualExplainer:
                         continue
 
                     features_query_flat_edited_tmp = features_query_flat_edited.clone()
-                    features_query_flat_edited_tmp[
-                        :, f_query
-                    ] = features_distractor_flat[:, f_distractor]
+                    features_query_flat_edited_tmp[:, f_query] = (
+                        features_distractor_flat[:, f_distractor]
+                    )
 
                     features_query_flat_edited_tmp = (
                         features_query_flat_edited_tmp.view(1, C, H, W)

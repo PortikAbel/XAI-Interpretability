@@ -18,3 +18,12 @@ class AbstractModel(nn.Module):
     @abstractmethod
     def forward(self, input_):
         return self.model
+
+    def load_state_dict(self, state_dict, strict: bool = True, assign: bool = False):
+        self.model.load_state_dict(state_dict, strict=strict, assign=assign)
+
+    def to(self, device):
+        self.model.to(device)
+
+    def eval(self):
+        self.model.eval()

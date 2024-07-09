@@ -1,6 +1,7 @@
 from tqdm import tqdm
 
-def controlled_synthetic_data_check_protocol(model, dataloader, explainer, args):
+
+def controlled_synthetic_data_check_protocol(model, dataloader, explainer, args, log):
 
     thresholds = explainer.get_p_thresholds()
     mcsdc_for_thresholds = {}
@@ -11,10 +12,10 @@ def controlled_synthetic_data_check_protocol(model, dataloader, explainer, args)
         images = samples["image"]
         target = samples["target"]
         part_maps = samples["part_map"]
-        if args.gpu is not None:
-            images = images.cuda(args.gpu, non_blocking=True)
-            part_maps = part_maps.cuda(args.gpu, non_blocking=True)
-            target = target.cuda(args.gpu, non_blocking=True)
+        if not args.disable_gpu:
+            images = images.cuda(args.device_ids[0], non_blocking=True)
+            part_maps = part_maps.cuda(args.device_ids[0], non_blocking=True)
+            target = target.cuda(args.device_ids[0], non_blocking=True)
 
         # make sure that model correctly classifies instance
         output = model(images)
@@ -61,6 +62,6 @@ def controlled_synthetic_data_check_protocol(model, dataloader, explainer, args)
             mcsdc_for_thresholds[threshold] / number_valid_samples
         )
 
-    print("mcsdcs: ", mcsdc_for_thresholds)
+    log.info(f"mcsdcs: {mcsdc_for_thresholds}")
 
     return mcsdc_for_thresholds

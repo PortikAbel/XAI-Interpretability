@@ -1,9 +1,10 @@
-from tqdm import tqdm
 from enum import Enum
+
 import torch
+from tqdm import tqdm
 
 
-def accuracy_protocol(model, dataloader, args):
+def accuracy_protocol(model, dataloader, args, log):
     class Summary(Enum):
         NONE = 0
         AVERAGE = 1
@@ -72,9 +73,9 @@ def accuracy_protocol(model, dataloader, args):
     for samples in tqdm(dataloader):
         images = samples["image"]
         target = samples["target"]
-        if args.gpu is not None:
-            images = images.cuda(args.gpu, non_blocking=True)
-            target = target.cuda(args.gpu, non_blocking=True)
+        if not args.disable_gpu:
+            images = images.cuda(args.device_ids[0], non_blocking=True)
+            target = target.cuda(args.device_ids[0], non_blocking=True)
 
         # compute output
         output = model(images)
@@ -84,7 +85,7 @@ def accuracy_protocol(model, dataloader, args):
         top1.update(acc1[0], images.size(0))
         top5.update(acc5[0], images.size(0))
 
-    print(top1)
-    print(top5)
+    log.info(top1)
+    log.info(top5)
 
     return top1.avg.item() / 100

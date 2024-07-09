@@ -5,7 +5,6 @@ from models.PIPNet.util.args import save_args
 
 
 class Log:
-
     """
     Object for managing the log directory
     """

@@ -1,7 +1,9 @@
 import re
+
 from tqdm import tqdm
 
-def distractibility_protocol(model, dataloader, explainer, args):
+
+def distractibility_protocol(model, dataloader, explainer, args, log):
 
     thresholds = explainer.get_p_thresholds()
     scores_for_thresholds = {}
@@ -17,10 +19,10 @@ def distractibility_protocol(model, dataloader, explainer, args):
         class_name = sample["class_name"].item()
         image_idx = sample["image_idx"].item()
         params = dataloader.dataset.get_params_for_single(params)
-        if args.gpu is not None:
-            image = image.cuda(args.gpu, non_blocking=True)
-            part_map = part_map.cuda(args.gpu, non_blocking=True)
-            target = target.cuda(args.gpu, non_blocking=True)
+        if not args.disable_gpu:
+            image = image.cuda(args.device_ids[0], non_blocking=True)
+            part_map = part_map.cuda(args.device_ids[0], non_blocking=True)
+            target = target.cuda(args.device_ids[0], non_blocking=True)
         score = {}
 
         output = model(image)
@@ -34,7 +36,7 @@ def distractibility_protocol(model, dataloader, explainer, args):
                 class_name, image_idx, [remove_part]
             )["image"]
 
-            image2 = image2.cuda(args.gpu, non_blocking=True)
+            image2 = image2.cuda(args.device_ids[0], non_blocking=True)
             output = model(image2)
 
             score[remove_part.split("_")[0]] = output[
@@ -45,11 +47,11 @@ def distractibility_protocol(model, dataloader, explainer, args):
         bg_object_ids = [int(s) for s in re.findall(r"\b\d+\b", params[bg_keys[0]])]
 
         for i in range(len(bg_object_ids)):
-            image2 = dataloader.dataset.get_background_intervention(class_name, image_idx, i)[
-                "image"
-            ]
+            image2 = dataloader.dataset.get_background_intervention(
+                class_name, image_idx, i
+            )["image"]
 
-            image2 = image2.cuda(args.gpu, non_blocking=True)
+            image2 = image2.cuda(args.device_ids[0], non_blocking=True)
             output = model(image2)
 
             score["bg_" + str(i).zfill(3)] = output[0, target].item()
@@ -93,5 +95,5 @@ def distractibility_protocol(model, dataloader, explainer, args):
             len(scores_for_thresholds[threshold]) + 1e-8
         )
 
-    print("Mean Distractibility Scores: ", scores_for_thresholds)
+    log.info(f"Mean Distractibility Scores: {scores_for_thresholds}")
     return scores_for_thresholds

@@ -1,7 +1,9 @@
 import re
+
 from tqdm import tqdm
 
-def background_independence_protocol(model, dataloader, args):
+
+def background_independence_protocol(model, dataloader, args, log):
     total_background_parts = 0
     number_relevant_background_parts = 0
 
@@ -14,10 +16,10 @@ def background_independence_protocol(model, dataloader, args):
         class_name = sample["class_name"].item()
         image_idx = sample["image_idx"].item()
         params = dataloader.dataset.get_params_for_single(params)
-        if args.gpu is not None:
-            image = image.cuda(args.gpu, non_blocking=True)
-            part_map = part_map.cuda(args.gpu, non_blocking=True)
-            target = target.cuda(args.gpu, non_blocking=True)
+        if not args.disable_gpu:
+            image = image.cuda(args.device_ids[0], non_blocking=True)
+            part_map = part_map.cuda(args.device_ids[0], non_blocking=True)
+            target = target.cuda(args.device_ids[0], non_blocking=True)
         score = {}
 
         output = model(image)
@@ -27,11 +29,11 @@ def background_independence_protocol(model, dataloader, args):
         bg_object_ids = [int(s) for s in re.findall(r"\b\d+\b", params[bg_keys[0]])]
 
         for i in range(len(bg_object_ids)):
-            image2 = dataloader.dataset.get_background_intervention(class_name, image_idx, i)[
-                "image"
-            ]
+            image2 = dataloader.dataset.get_background_intervention(
+                class_name, image_idx, i
+            )["image"]
 
-            image2 = image2.cuda(args.gpu, non_blocking=True)
+            image2 = image2.cuda(args.device_ids[0], non_blocking=True)
             output = model(image2)
 
             score["bg_" + str(i).zfill(3)] = output[0, target].item()
@@ -57,5 +59,5 @@ def background_independence_protocol(model, dataloader, args):
         1 - number_relevant_background_parts / total_background_parts
     )
 
-    print("Background Dependence Score: ", background_dependence)
+    log.info(f"Background Dependence Score: {background_dependence}")
     return background_dependence

@@ -76,7 +76,7 @@ def __visualize_predictions(
         vis_test_set,
         batch_size=1,
         shuffle=False,
-        pin_memory=not args.disable_cuda and torch.cuda.is_available(),
+        pin_memory=not args.disable_gpu and torch.cuda.is_available(),
         num_workers=num_workers,
     )
     imgs = vis_test_set.imgs

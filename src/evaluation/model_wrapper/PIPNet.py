@@ -12,12 +12,9 @@ class PipNetModel(AbstractModel):
         super().__init__(model)
         self.model = model
 
-    def forward(self, input, return_partial_outputs=False):
-        proto_features, pooled, out = self.model(input)
+    def forward(self, input_, return_partial_outputs=False):
+        proto_features, pooled, out = self.model(input_)
         if not return_partial_outputs:
             return out
         else:
             return proto_features, pooled, out
-
-    def load_state_dict(self, state_dict):
-        self.model.load_state_dict(state_dict)
