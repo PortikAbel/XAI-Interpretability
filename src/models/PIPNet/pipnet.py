@@ -217,9 +217,14 @@ class NonNegLinear(nn.Module):
 
 
 def get_network(num_classes: int, args: argparse.Namespace):
-    in_channels = 3
+    feature_kwargs = {
+        "in_channels": args.color_channels,
+    }
+    if "resnet" in args.net:
+        feature_kwargs["stride"] = [1, 2, 1, 1]
+
     features = base_architecture_to_features[args.net](
-        pretrained=not args.disable_pretrained, in_channels=in_channels
+        pretrained=not args.disable_pretrained, **feature_kwargs,
     )
     first_add_on_layer_in_channels = [
         i for i in features.modules() if isinstance(i, nn.Conv2d)

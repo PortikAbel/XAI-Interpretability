@@ -16,9 +16,25 @@ class ResNet_features(nn.Module):
     """
 
     def __init__(
-        self, block, layers, num_classes=1000, zero_init_residual=False, in_channels=3
+        self,
+        block,
+        layers,
+        zero_init_residual=False,
+        in_channels=3,
+        stride=None,
     ):
         super(ResNet_features, self).__init__()
+
+        if stride is None:
+            stride = [2] * len(layers)
+            stride[0] = 1
+        if type(stride) is int:
+            stride = [stride] * len(layers)
+        if len(layers) != len(stride):
+            raise ValueError(
+                f"The same number of layers and stride must be specified, "
+                f"but got {len(layers)} != {len(stride)}"
+            )
 
         self.in_planes = 64
 
@@ -38,16 +54,16 @@ class ResNet_features(nn.Module):
         self.block = block
         self.layers = layers
         self.layer1 = self._make_layer(
-            block=block, planes=64, num_blocks=self.layers[0]
+            block=block, planes=64, num_blocks=self.layers[0], stride=stride[0],
         )
         self.layer2 = self._make_layer(
-            block=block, planes=128, num_blocks=self.layers[1], stride=2
+            block=block, planes=128, num_blocks=self.layers[1], stride=stride[1],
         )
         self.layer3 = self._make_layer(
-            block=block, planes=256, num_blocks=self.layers[2], stride=2
+            block=block, planes=256, num_blocks=self.layers[2], stride=stride[2],
         )
         self.layer4 = self._make_layer(
-            block=block, planes=512, num_blocks=self.layers[3], stride=2
+            block=block, planes=512, num_blocks=self.layers[3], stride=stride[3],
         )
 
         # initialize the parameters

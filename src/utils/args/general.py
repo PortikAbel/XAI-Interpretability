@@ -184,6 +184,9 @@ class GeneralModelParametersParser(argparse.ArgumentParser):
         args.color_channels = dataset_config["color_channels"]
         args.data_dir = dataset_config["data_dir"]
         args.train_dir = dataset_config["train_dir"]
+        args.train_dir_pretrain = dataset_config.get(
+            "train_dir_pretrain", args.train_dir
+        )
         args.train_dir_projection = dataset_config.get(
             "train_dir_projection", args.train_dir
         )
