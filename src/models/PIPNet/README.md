@@ -4,7 +4,7 @@ PIP-Net [^Nauta-2023-PIP-Net] is a model extending ProtoPNet.
 
 An example:
 ```shell
-python3 main.py --model PIPNet --net vgg11 --dataset Funny
+python3 main.py --model PIPNet --net vgg11 --dataset Funny --image_width 256 --batch_size 32 --batch_size_pretrain 64 --gpu_ids 0 --tanh_loss 5
 ```
 
 ## Usage: 
