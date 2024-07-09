@@ -1,26 +1,23 @@
 import random
-from pathlib import Path
-
 from argparse import ArgumentParser, Namespace
+from pathlib import Path
 
 import torch
 import torch.nn as nn
+from captum.attr import InputXGradient, IntegratedGradients
 from torch.utils.data import DataLoader
-
-from captum.attr import IntegratedGradients, InputXGradient
 
 import models.PIPNet.pipnet as model_pipnet
 import models.ProtoPNet.model as model_ppnet
 from data.funny_birds import FunnyBirds
 from evaluation.explainer_wrapper.captum import CaptumAttributionExplainer
-from evaluation.explainer_wrapper.PIPNet import PIPNetExplainer
-from evaluation.model_wrapper.base import AbstractModel
 from evaluation.explainer_wrapper.GradCam import GradCamExplainer
-from evaluation.model_wrapper.standard import StandardModel
+from evaluation.explainer_wrapper.PIPNet import PIPNetExplainer
 from evaluation.explainer_wrapper.ProtoPNet import ProtoPNetExplainer
+from evaluation.model_wrapper.base import AbstractModel
 from evaluation.model_wrapper.PIPNet import PipNetModel
 from evaluation.model_wrapper.ProtoPNet import ProtoPNetModel
-from utils.file_operations import get_package
+from evaluation.model_wrapper.standard import StandardModel
 from evaluation.protocols import (
     accuracy_protocol,
     background_independence_protocol,
@@ -31,10 +28,11 @@ from evaluation.protocols import (
     single_deletion_protocol,
     target_sensitivity_protocol,
 )
-from models.resnet import resnet50, resnet18, resnet34
-from models.vgg import vgg16, vgg11
 from models.convnext import convnext_tiny
+from models.resnet import resnet18, resnet34, resnet50
+from models.vgg import vgg11, vgg16
 from utils.environment import get_env
+from utils.file_operations import get_package
 from utils.log import BasicLog
 
 parser = ArgumentParser(description="FunnyBirds - Explanation Evaluation")
@@ -43,7 +41,7 @@ parser.add_argument(
     choices=["train", "test"],
     default="test",
     type=str,
-    help="Subset of data to use."
+    help="Subset of data to use.",
 )
 parser.add_argument(
     "--model",
@@ -54,13 +52,7 @@ parser.add_argument(
 parser.add_argument(
     "--explainer",
     required=True,
-    choices=[
-        "IntegratedGradients",
-        "InputXGradient",
-        "ProtoPNet",
-        "PIPNet",
-        "GradCam"
-    ],
+    choices=["IntegratedGradients", "InputXGradient", "ProtoPNet", "PIPNet", "GradCam"],
     help="explainer",
 )
 parser.add_argument(
@@ -189,15 +181,15 @@ def create_model(args: Namespace, log: BasicLog):
     elif args.model == "post_hoc":
         num_classes = args.num_classes
 
-        if args.backbone == 'resnet18':
+        if args.backbone == "resnet18":
             model = resnet18(num_classes=num_classes)
-        elif args.backbone == 'resnet34':
+        elif args.backbone == "resnet34":
             model = resnet34(num_classes=num_classes)
-        elif args.backbone == 'vgg11':
+        elif args.backbone == "vgg11":
             model = vgg11(num_classes=num_classes)
-        elif args.backbone == 'vgg16':
+        elif args.backbone == "vgg16":
             model = vgg16(num_classes=num_classes)
-        elif args.backbone == 'convnext':
+        elif args.backbone == "convnext":
             model = convnext_tiny(num_classes=num_classes, pretrained=True)
 
         model = StandardModel(model)
@@ -261,10 +253,21 @@ def main(args: Namespace, log: BasicLog):
     bathed_dataset = FunnyBirds(args.data_dir, args.data_subset)
     partmap_dataset = FunnyBirds(args.data_dir, args.data_subset, get_part_map=True)
 
-    bathed_dataloader = DataLoader(bathed_dataset, batch_size=int(args.batch_size), shuffle=False)
+    bathed_dataloader = DataLoader(
+        bathed_dataset, batch_size=int(args.batch_size), shuffle=False
+    )
     partmap_dataloader = DataLoader(partmap_dataset, batch_size=1, shuffle=False)
 
-    accuracy, background_independence, csdc, pc, dc, distractibility, sd, ts = -1, -1, -1, -1, -1, -1, -1, -1
+    accuracy, background_independence, csdc, pc, dc, distractibility, sd, ts = (
+        -1,
+        -1,
+        -1,
+        -1,
+        -1,
+        -1,
+        -1,
+        -1,
+    )
 
     if args.accuracy:
         log.info("Computing accuracy...")
@@ -353,8 +356,9 @@ if __name__ == "__main__":
                 ProtoPNetArgumentParser as ModelArgumentParser,
             )
         case "PIPNet":
-            from models.PIPNet.util.args import \
-                PIPNetArgumentParser as ModelArgumentParser
+            from models.PIPNet.util.args import (
+                PIPNetArgumentParser as ModelArgumentParser,
+            )
         case _:
             raise ValueError(f"Unknown model: {args.model}")
 
@@ -363,7 +367,8 @@ if __name__ == "__main__":
     all_args = Namespace(**vars(args), **vars(model_args))
 
     results_location = get_env("RESULTS_LOCATION", must_exist=False) or get_env(
-        "PROJECT_ROOT")
+        "PROJECT_ROOT"
+    )
     dir_name = f"{all_args.model}-{all_args.net}"
     if all_args.checkpoint_path:
         to_output_dir = all_args.checkpoint_path

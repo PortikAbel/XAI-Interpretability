@@ -23,4 +23,3 @@ def get_package(file_path: str | Path, root: str | Path = None) -> str:
         return str(relative).replace("/", ".")
 
     return file_path.stem
-

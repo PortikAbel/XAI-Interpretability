@@ -1,5 +1,7 @@
 import re
+
 from tqdm import tqdm
+
 
 def background_independence_protocol(model, dataloader, args, log):
     total_background_parts = 0
@@ -27,9 +29,9 @@ def background_independence_protocol(model, dataloader, args, log):
         bg_object_ids = [int(s) for s in re.findall(r"\b\d+\b", params[bg_keys[0]])]
 
         for i in range(len(bg_object_ids)):
-            image2 = dataloader.dataset.get_background_intervention(class_name, image_idx, i)[
-                "image"
-            ]
+            image2 = dataloader.dataset.get_background_intervention(
+                class_name, image_idx, i
+            )["image"]
 
             image2 = image2.cuda(args.device_ids[0], non_blocking=True)
             output = model(image2)

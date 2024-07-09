@@ -1,5 +1,4 @@
 import argparse
-
 from datetime import datetime
 from difflib import SequenceMatcher
 from pathlib import Path
@@ -13,33 +12,31 @@ from utils.file_operations import get_package
 from utils.log import BasicLog
 
 parser = argparse.ArgumentParser(
-    __file__,
-    description="Extract values from the tensorboard"
+    __file__, description="Extract values from the tensorboard"
 )
 parser.add_argument(
-    "-d", "--dir",
+    "-d",
+    "--dir",
     type=Path,
     required=True,
     help="Tensorboard log directory",
 )
 parser.add_argument(
-    "-n", "--names",
+    "-n",
+    "--names",
     type=str,
     nargs="+",
     action="append",
-    help="List of value names to be extracted into one file"
+    help="List of value names to be extracted into one file",
 )
 parser.add_argument(
-    "-o", "--output",
-    type=str,
-    nargs="*",
-    default=[],
-    help="Names of the output files"
+    "-o", "--output", type=str, nargs="*", default=[], help="Names of the output files"
 )
 parser.add_argument(
-    "-e", "--epochs",
+    "-e",
+    "--epochs",
     type=int,
-    help="If steps are logged, this number is used the compute the values per epoch"
+    help="If steps are logged, this number is used the compute the values per epoch",
 )
 parser.add_argument(
     "--log_dir",
@@ -48,14 +45,12 @@ parser.add_argument(
     help="The directory in which train progress should be logged",
 )
 parser.add_argument(
-    "--enable_console",
-    action="store_true",
-    help="Enable console output"
+    "--enable_console", action="store_true", help="Enable console output"
 )
 
 
 def tflog2pandas(
-        path: Path, name_group: list, epochs: int | None, logger: BasicLog
+    path: Path, name_group: list, epochs: int | None, logger: BasicLog
 ) -> pd.DataFrame:
     """
     Extract scalars from tensorboard.
@@ -84,7 +79,7 @@ def tflog2pandas(
             if epochs is not None:
                 step_per_epoch = int(np.ceil(step[-1] / epochs))
                 values = [
-                    np.average(values[i:i + step_per_epoch])
+                    np.average(values[i : i + step_per_epoch])
                     for i in range(0, len(values), step_per_epoch)
                 ]
                 if len(values) < epochs:
@@ -111,7 +106,7 @@ def get_longest_match(names: list) -> str:
     i = 1
     while i < len(names) and len(previous_match) > 0:
         match = SequenceMatcher(a=previous_match, b=names[i]).find_longest_match()
-        previous_match = previous_match[match.a:match.a + match.size]
+        previous_match = previous_match[match.a : match.a + match.size]
         i += 1
 
     return previous_match
@@ -124,15 +119,11 @@ def check_args() -> argparse.Namespace:
             f"Number of epochs must be a positive integer, but got {args.epochs}"
         )
     if not args.log_dir.is_absolute():
-        results_location = (
-                get_env("RESULTS_LOCATION", must_exist=False) or
-                get_env("PROJECT_ROOT")
+        results_location = get_env("RESULTS_LOCATION", must_exist=False) or get_env(
+            "PROJECT_ROOT"
         )
         args.log_dir = Path(
-            results_location,
-            "runs",
-            get_package(__file__),
-            args.log_dir
+            results_location, "runs", get_package(__file__), args.log_dir
         )
         args.log_dir = args.log_dir.resolve()
 
@@ -150,7 +141,6 @@ def main(args):
             prefix = f"{i} / {total}"
             logger.info(f"{prefix} {name_group}")
             data = tflog2pandas(args.dir, name_group, args.epochs, logger)
-            #df=df[(df.metric != 'params/lr')&(df.metric != 'params/mm')&(df.metric != 'train/loss')] #delete the mentioned rows
             if i - 1 < len(args.output):
                 filename = args.output[i - 1]
             else:

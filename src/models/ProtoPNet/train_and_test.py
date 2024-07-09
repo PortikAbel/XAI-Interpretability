@@ -136,7 +136,9 @@ def _train_or_test(
         else:
             phase = "test"
 
-        tensorboard_writer.add_scalar(f"Loss/epoch/{phase}/total", total_loss / n_batches, epoch)
+        tensorboard_writer.add_scalar(
+            f"Loss/epoch/{phase}/total", total_loss / n_batches, epoch
+        )
         tensorboard_writer.add_scalar(
             f"Loss/epoch/{phase}/cross entropy", total_cross_entropy / n_batches, epoch
         )
@@ -144,9 +146,15 @@ def _train_or_test(
             f"Loss/epoch/{phase}/cluster cost", total_cluster_cost / n_batches, epoch
         )
         tensorboard_writer.add_scalar(
-            f"Loss/epoch/{phase}/separation cost", total_separation_cost / n_batches, epoch
+            f"Loss/epoch/{phase}/separation cost",
+            total_separation_cost / n_batches,
+            epoch,
         )
-        tensorboard_writer.add_scalar(f"Loss/epoch/{phase}/l1", model.module.last_layer.weight.norm(p=1).item(), epoch)
+        tensorboard_writer.add_scalar(
+            f"Loss/epoch/{phase}/l1",
+            model.module.last_layer.weight.norm(p=1).item(),
+            epoch,
+        )
         tensorboard_writer.add_scalar(f"Accuracy/epoch/{phase}", accuracy, epoch)
 
     return accuracy
@@ -212,7 +220,8 @@ def compute_loss_components(
                     inverted_distances_to_nontarget_prototypes,
                     _,
                 ) = torch.max(
-                    (max_dist - additional_out.min_distances) * prototypes_of_wrong_class,
+                    (max_dist - additional_out.min_distances)
+                    * prototypes_of_wrong_class,
                     dim=1,
                 )
                 separation_cost = torch.mean(
@@ -220,11 +229,14 @@ def compute_loss_components(
                 )
             elif args.separation_type == "avg":
                 min_distances_detached_prototype_vectors = (
-                    model.module.prototype_min_distances(input_, detach_prototypes=True)[0]
+                    model.module.prototype_min_distances(
+                        input_, detach_prototypes=True
+                    )[0]
                 )
                 # calculate avg cluster cost
                 avg_separation_cost = torch.sum(
-                    min_distances_detached_prototype_vectors * prototypes_of_wrong_class,
+                    min_distances_detached_prototype_vectors
+                    * prototypes_of_wrong_class,
                     dim=1,
                 ) / torch.sum(prototypes_of_wrong_class, dim=1)
                 avg_separation_cost = torch.mean(avg_separation_cost)

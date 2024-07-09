@@ -1,8 +1,8 @@
+import random
 import re
 from argparse import ArgumentParser, Namespace
 from datetime import datetime
 from pathlib import Path
-import random
 
 import pandas as pd
 import torch
@@ -12,16 +12,20 @@ from torch.utils.data import DataLoader
 from data.funny_birds import FunnyBirds
 from evaluation.explainer_wrapper.ProtoPNet import ProtoPNetExplainer
 from evaluation.model_wrapper.ProtoPNet import ProtoPNetModel
-from evaluation.protocols import accuracy_protocol, \
-    controlled_synthetic_data_check_protocol, target_sensitivity_protocol, \
-    single_deletion_protocol, preservation_check_protocol, distractibility_protocol, \
-    deletion_check_protocol, background_independence_protocol
+from evaluation.protocols import (
+    accuracy_protocol,
+    background_independence_protocol,
+    controlled_synthetic_data_check_protocol,
+    deletion_check_protocol,
+    distractibility_protocol,
+    preservation_check_protocol,
+    single_deletion_protocol,
+    target_sensitivity_protocol,
+)
 from models.ProtoPNet.model import construct_PPNet
-from models.ProtoPNet.util.args import ProtoPNetArgumentParser
 from utils.environment import get_env
 from utils.file_operations import get_package
 from utils.log import BasicLog
-
 
 parser = ArgumentParser(description="FunnyBirds - Explanation Evaluation")
 parser.add_argument(
@@ -29,7 +33,7 @@ parser.add_argument(
     choices=["train", "test"],
     default="test",
     type=str,
-    help="Subset of data to use."
+    help="Subset of data to use.",
 )
 parser.add_argument(
     "--model",
@@ -62,8 +66,7 @@ parser.add_argument(
     help="batch size for protocols that do not require custom BS such as accuracy",
 )
 parser.add_argument(
-    "--accuracy", default=False, action="store_true",
-    help="compute accuracy"
+    "--accuracy", default=False, action="store_true", help="compute accuracy"
 )
 parser.add_argument(
     "--controlled_synthetic_data_check",
@@ -120,7 +123,7 @@ def evaluate(checkpoint_path, epoch, args, log):
     if args.model == "ProtoPNet":
         load_model_dir = args.checkpoint_path
 
-        log.info("REMEMBER TO ADJUST PROTOPNET PATH AND EPOCH")
+        log.warning("REMEMBER TO ADJUST PROTOPNET PATH AND EPOCH")
         model = construct_PPNet(
             base_architecture=args.net,
             backbone_only=args.backbone_only,
@@ -131,16 +134,13 @@ def evaluate(checkpoint_path, epoch, args, log):
             prototype_activation_function=args.prototype_activation_function,
             add_on_layers_type=args.add_on_layers_type,
         )
-        model = nn.DataParallel(model,
-                                device_ids=list(map(int, args.gpu_ids)))
+        model = nn.DataParallel(model, device_ids=list(map(int, args.gpu_ids)))
         model = ProtoPNetModel(model, load_model_dir, epoch)
     else:
-        raise NotImplementedError(
-            f"Model {args.model!r} not implemented")
+        raise NotImplementedError(f"Model {args.model!r} not implemented")
 
     if checkpoint_path:
-        state_dict = torch.load(checkpoint_path,
-                                map_location=torch.device("cpu"))
+        state_dict = torch.load(checkpoint_path, map_location=torch.device("cpu"))
         if type(state_dict) is not dict:
             state_dict.to(args.device)
             model.model.module = state_dict
@@ -156,13 +156,23 @@ def evaluate(checkpoint_path, epoch, args, log):
     else:
         raise NotImplementedError("Explainer not implemented")
 
-
     bathed_dataset = FunnyBirds(args.data_dir, args.data_subset)
     partmap_dataset = FunnyBirds(args.data_dir, args.data_subset, get_part_map=True)
-    bathed_dataloader = DataLoader(bathed_dataset, batch_size=int(args.batch_size), shuffle=False)
+    bathed_dataloader = DataLoader(
+        bathed_dataset, batch_size=int(args.batch_size), shuffle=False
+    )
     partmap_dataloader = DataLoader(partmap_dataset, batch_size=1, shuffle=False)
 
-    accuracy, background_independence, csdc, pc, dc, distractibility, sd, ts = -1, -1, -1, -1, -1, -1, -1, -1
+    accuracy, background_independence, csdc, pc, dc, distractibility, sd, ts = (
+        -1,
+        -1,
+        -1,
+        -1,
+        -1,
+        -1,
+        -1,
+        -1,
+    )
 
     if args.accuracy:
         log.info("Computing accuracy...")
@@ -216,10 +226,10 @@ def evaluate(checkpoint_path, epoch, args, log):
     best_threshold = -1
     for threshold in csdc.keys():
         max_score_tmp = (
-                csdc[threshold] / 3.0
-                + pc[threshold] / 3.0
-                + dc[threshold] / 3.0
-                + distractibility[threshold]
+            csdc[threshold] / 3.0
+            + pc[threshold] / 3.0
+            + dc[threshold] / 3.0
+            + distractibility[threshold]
         )
         if max_score_tmp > max_score:
             max_score = max_score_tmp
@@ -228,9 +238,17 @@ def evaluate(checkpoint_path, epoch, args, log):
     del explainer
     del model
 
-    return [accuracy, csdc[best_threshold], pc[best_threshold],
-            dc[best_threshold], distractibility[best_threshold],
-            background_independence, sd, ts, best_threshold]
+    return [
+        accuracy,
+        csdc[best_threshold],
+        pc[best_threshold],
+        dc[best_threshold],
+        distractibility[best_threshold],
+        background_independence,
+        sd,
+        ts,
+        best_threshold,
+    ]
 
 
 def main():
@@ -250,24 +268,37 @@ def main():
 
     # Create a logger
     results_location = get_env("RESULTS_LOCATION", must_exist=False) or get_env(
-        "PROJECT_ROOT")
+        "PROJECT_ROOT"
+    )
     log_dir = Path(
         results_location,
         "runs",
         get_package(__file__),
-        datetime.now().strftime("%Y-%m-%d-%H-%M-%S")
+        datetime.now().strftime("%Y-%m-%d-%H-%M-%S"),
     )
     log = BasicLog(log_dir, __name__, not args.enable_console)
 
     try:
-        checkpoints = [x for x in args.checkpoint_path.iterdir() if
-                       x.is_file() and x.suffix == ".pth" and x.name[0].isdigit()]
-        checkpoints.sort(key=lambda cp: int(re.match(r"^([0-9]+)_.*", cp.stem).group(1)))
+        checkpoints = [
+            x
+            for x in args.checkpoint_path.iterdir()
+            if x.is_file() and x.suffix == ".pth" and x.name[0].isdigit()
+        ]
+        checkpoints.sort(
+            key=lambda cp: int(re.match(r"^([0-9]+)_.*", cp.stem).group(1))
+        )
 
         data_table = pd.DataFrame(
             columns=[
-                "accuracy", "csdc", "pc", "dc", "distractibility",
-                "background_independence", "sd", "ts", "threshold"
+                "accuracy",
+                "csdc",
+                "pc",
+                "dc",
+                "distractibility",
+                "background_independence",
+                "sd",
+                "ts",
+                "threshold",
             ],
             index=pd.Index([], name="epoch"),
         )

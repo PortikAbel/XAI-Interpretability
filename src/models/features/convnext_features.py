@@ -29,9 +29,9 @@ class ConvNext_features(AbstractModel):
                 print("Stride: ", module.stride[0])
                 self.strides.append(module.stride[0])
                 print("Padding: ", module.padding[0])
-                self.paddings.append(module.padding[0])                
+                self.paddings.append(module.padding[0])
         return self.kernel_sizes, self.strides, self.paddings
-    
+
     def forward(self, x):
         x = self.model(x)
         return x

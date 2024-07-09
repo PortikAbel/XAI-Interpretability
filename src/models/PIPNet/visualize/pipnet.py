@@ -1,10 +1,9 @@
 import argparse
 import random
 from collections import defaultdict
-
-import numpy as np
 from pathlib import Path
 
+import numpy as np
 import torch
 import torch.utils.data
 import torchvision

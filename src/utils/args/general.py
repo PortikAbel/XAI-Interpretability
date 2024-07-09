@@ -104,7 +104,7 @@ class GeneralModelParametersParser(argparse.ArgumentParser):
         log_group.add_argument(
             "--save_all_models",
             action="store_true",
-            help="Flag to save the model in each epoch"
+            help="Flag to save the model in each epoch",
         )
 
         dataset_group = self.add_argument_group(
@@ -158,7 +158,9 @@ class GeneralModelParametersParser(argparse.ArgumentParser):
         """
         if backbone_network is not None:
             model_name = f"{model_name}/{backbone_network}"
-        results_location = get_env("RESULTS_LOCATION", must_exist=False) or get_env("PROJECT_ROOT")
+        results_location = get_env("RESULTS_LOCATION", must_exist=False) or get_env(
+            "PROJECT_ROOT"
+        )
         args.log_dir = Path(results_location, "runs", model_name, args.log_dir)
         args.log_dir = args.log_dir.resolve()
         args.log_dir.mkdir(parents=True, exist_ok=True)

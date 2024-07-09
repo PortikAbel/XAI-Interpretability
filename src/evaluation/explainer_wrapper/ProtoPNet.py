@@ -67,16 +67,12 @@ class ProtoPNetExplainer(AbstractAttributionExplainer):
         prototype_activations = model.distance_2_similarity(
             additional_outs.min_distances
         )
-        prototype_activation_patterns = model.distance_2_similarity(
-            distances
-        )
+        prototype_activation_patterns = model.distance_2_similarity(distances)
 
         target_class = target[idx]
 
         class_prototype_indices = np.nonzero(
-            model.prototype_class_identity.detach()
-            .cpu()
-            .numpy()[:, target_class]
+            model.prototype_class_identity.detach().cpu().numpy()[:, target_class]
         )[0]
         class_prototype_activations = prototype_activations[idx][
             class_prototype_indices
@@ -130,9 +126,7 @@ class ProtoPNetExplainer(AbstractAttributionExplainer):
 
             inference_image_mask = mask.to(image.device)
             similarity_score = prototype_activations[idx][prototype_index]
-            class_connection = model.last_layer.weight[target_class][
-                prototype_index
-            ]
+            class_connection = model.last_layer.weight[target_class][prototype_index]
             attribution += inference_image_mask * similarity_score * class_connection
 
             self.inference_image_masks.append(mask)

@@ -1,6 +1,7 @@
 import torch
 from tqdm import tqdm
 
+
 def target_sensitivity_protocol(model, dataloader, explainer, args, log):
     def class_overlap(parts1, parts2):
         overlap_parts = []
@@ -30,7 +31,9 @@ def target_sensitivity_protocol(model, dataloader, explainer, args, log):
 
         # get two classes that have each 2 parts in common with current target class,
         # i.e. 3 parts distance
-        classes_w_two_overlap = dataloader.dataset.get_classes_with_distance_n(target[0], 3)
+        classes_w_two_overlap = dataloader.dataset.get_classes_with_distance_n(
+            target[0], 3
+        )
         # get two classes out of these that don't have overlap in the two parts
         # that overlap with target class.
         # E.g. one overlaps in foot and beak and the other in tail and wing

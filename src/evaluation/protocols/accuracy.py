@@ -1,7 +1,7 @@
-from tqdm import tqdm
 from enum import Enum
 
 import torch
+from tqdm import tqdm
 
 
 def accuracy_protocol(model, dataloader, args, log):

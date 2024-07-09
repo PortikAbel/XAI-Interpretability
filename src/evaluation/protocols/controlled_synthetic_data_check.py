@@ -1,5 +1,6 @@
 from tqdm import tqdm
 
+
 def controlled_synthetic_data_check_protocol(model, dataloader, explainer, args, log):
 
     thresholds = explainer.get_p_thresholds()

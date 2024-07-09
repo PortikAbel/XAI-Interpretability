@@ -1,6 +1,5 @@
 import argparse
 import random
-import warnings
 
 import numpy as np
 import torch

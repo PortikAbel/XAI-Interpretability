@@ -99,10 +99,7 @@ def define_parser():
         help="Number of prototypes per class.",
     )
     prototype_parameter_group.add_argument(
-        "--prototype_depth",
-        type=int,
-        default=256,
-        help="Depth of the prototypes."
+        "--prototype_depth", type=int, default=256, help="Depth of the prototypes."
     )
     prototype_parameter_group.add_argument(
         "--prototype_activation_function",

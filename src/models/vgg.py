@@ -63,9 +63,12 @@ def _vgg(
         )
         state_dict.pop("classifier.6.weight")
         state_dict.pop("classifier.6.bias")
-        state_dict = {(('features.'+ k) if k.startswith('features') else k):v for k, v in state_dict.items()}
+        state_dict = {
+            (("features." + k) if k.startswith("features") else k): v
+            for k, v in state_dict.items()
+        }
         model.load_state_dict(state_dict, strict=False)
-        
+
     return model
 
 

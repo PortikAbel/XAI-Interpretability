@@ -15,8 +15,6 @@ from utils.log import Log
 
 
 def _train_backbone_model(log, tensorboard_writer, args):
-    img_dir = log.log_dir / args.dir_for_saving_images
-
     (
         train_loader,
         _,
@@ -191,9 +189,11 @@ def _train_explainable_model(log, tensorboard_writer, args):
     epoch = 1
     accu = 0.0
     while epoch <= args.n_epochs:
-        log.info(f"{'warm ' if epoch <=args.epochs_warm else ''}"
-                 f"epoch: \t{epoch} / "
-                 f"{args.epochs_warm if epoch <= args.epochs_warm else args.n_epochs}")
+        log.info(
+            f"{'warm ' if epoch <=args.epochs_warm else ''}"
+            f"epoch: \t{epoch} / "
+            f"{args.epochs_warm if epoch <= args.epochs_warm else args.n_epochs}"
+        )
         if epoch <= args.epochs_warm:
             tnt.warm_only(model=ppnet_multi, log=log)
             optimizer = warm_optimizer

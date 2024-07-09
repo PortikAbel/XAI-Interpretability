@@ -1,6 +1,5 @@
 import argparse
 import re
-
 from pathlib import Path
 
 import matplotlib.pyplot as plt
@@ -8,13 +7,15 @@ import numpy as np
 
 parser = argparse.ArgumentParser(__file__, description="Export prototypes")
 parser.add_argument(
-    "-p", "--path",
+    "-p",
+    "--path",
     type=Path,
     help="Path to the visualization results",
     required=True,
 )
 parser.add_argument(
-    "-n", "--n_prototypes",
+    "-n",
+    "--n_prototypes",
     type=int,
     help="Number of prototypes per class",
     default=10,
@@ -26,13 +27,15 @@ parser.add_argument(
     default=10,
 )
 parser.add_argument(
-    "-r", "--regex_pattern",
+    "-r",
+    "--regex_pattern",
     type=str,
     help="Regex pattern to filter the files",
     default="*original_with_self_act*",
 )
 parser.add_argument(
-    "-o", "--output",
+    "-o",
+    "--output",
     type=Path,
     help="Output path",
     default=Path("."),
@@ -54,9 +57,7 @@ if len(selected_files) == 0:
         f"pattern {args.regex_pattern!r}"
     )
 
-selected_files.sort(
-    key=lambda file: int(re.search(r"(\d+)", file.name).group(0))
-)
+selected_files.sort(key=lambda file: int(re.search(r"(\d+)", file.name).group(0)))
 
 selected_classes = np.random.choice(
     np.arange(len(selected_files) // args.n_prototypes), args.n_classes, replace=False
